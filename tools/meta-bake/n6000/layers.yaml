@@ -1,0 +1,64 @@
+machine: agilex
+image: n6000
+target: n6000-image-minimal
+fit: true
+repos:
+  - name: poky
+    url: https://git.yoctoproject.org/git/poky.git
+    branch: hardknott
+  - name: meta-intel-fpga
+    url: https://git.yoctoproject.org/git/meta-intel-fpga.git
+    branch: hardknott
+    add_layers: true
+  - name: meta-intel-fpga-refdes
+    url: https://github.com/altera-opensource/meta-intel-fpga-refdes.git
+    #url__: https://github.com/intel-innersource/os.linux.yocto.reference-design.meta-intel-fpga-refdes.git
+    #url: git@github.com:intel-innersource/os.linux.yocto.reference-design.meta-intel-fpga-refdes.git
+    #branch: rrojo/n6000
+    branch: hardknott
+    patch: refdes-n6000-ppp.patch
+    keep: true
+    add_layers: true
+  - name: meta-openembedded
+    url: git://git.openembedded.org/meta-openembedded.git
+    branch: hardknott
+    add_layers:
+      - meta-oe
+      - meta-networking
+      - meta-python
+ingredients:
+  linux:
+    name: linux-socfpga
+    version: '5.10.100'
+    branch: socfpga-5.10.100-lts
+    url: https://github.com/altera-opensource/linux-socfpga.git
+  uboot:
+    name: u-boot-socfpga
+    version: '2021.07'
+    branch: socfpga_v2021.07
+    url: https://github.com/altera-opensource/u-boot-socfpga.git
+  atf:
+    disabled: true
+    version: '2.4.1'
+    branch: socfpga_v2.4.1
+    url: https://github.com/altera-opensource/arm-trusted-firmware.git
+local:
+  remove:
+    - MACHINE
+    - UBOOT_CONFIG
+    - IMAGE
+    - SRC_URI
+  values:
+    MACHINE: $machine
+    DL_DIR: $build_dir/downloads
+    DISTRO_FEATURES_append: " systemd"
+    VIRTUAL-RUNTIME_init_manager: systemd
+    IMAGE_TYPE: $image
+    IMAGE_FSTYPES: "+=cpio tar.gz"
+    PREFERRED_PROVIDER_virtual/kernel: linux-socfpga-lts
+    PREFERRED_VERSION_linux-socfpga-lts: 5.10%
+    UBOOT_CONFIG: agilex-n6000
+    PREFERRED_PROVIDER_virtual/bootloader: u-boot-socfpga
+    PREFERRED_VERSION_u-boot-socfpga: v2021.07%
+
+

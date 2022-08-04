@@ -1,0 +1,1254 @@
+diff --git a/recipes-bsp/arm-trusted-firmware/arm-trusted-firmware_v2.4.bbappend b/recipes-bsp/arm-trusted-firmware/arm-trusted-firmware_v2.4.bbappend
+new file mode 100644
+index 0000000..7df15d2
+--- /dev/null
++++ b/recipes-bsp/arm-trusted-firmware/arm-trusted-firmware_v2.4.bbappend
+@@ -0,0 +1,3 @@
++FILESEXTRAPATHS_prepend := "${THISDIR}/files:"
++
++SRC_URI_append += "${@bb.utils.contains('IMAGE_TYPE', 'n6000', 'file://0001-patch-intel-switch-console-to-uart1.patch', '', d)}"
+diff --git a/recipes-bsp/arm-trusted-firmware/files/0001-patch-intel-switch-console-to-uart1.patch b/recipes-bsp/arm-trusted-firmware/files/0001-patch-intel-switch-console-to-uart1.patch
+new file mode 100644
+index 0000000..99ffe23
+--- /dev/null
++++ b/recipes-bsp/arm-trusted-firmware/files/0001-patch-intel-switch-console-to-uart1.patch
+@@ -0,0 +1,31 @@
++From 0f61423391f399cfd0fbffea272a236e9a8aa911 Mon Sep 17 00:00:00 2001
++From: Matthew Gerlach <matthew.gerlach@linux.intel.com>
++Date: Fri, 24 Jun 2022 06:59:03 +0800
++Subject: [PATCH] patch(intel): switch console to uart1
++
++It appears ATF is not finding the console in u-boot's dtb; so
++we much override the UART address macro for the n6000 card.
++
++Signed-off-by: Matthew Gerlach <matthew.gerlach@linux.intel.com>
++---
++ plat/intel/soc/common/include/platform_def.h | 4 ++--
++ 1 file changed, 2 insertions(+), 2 deletions(-)
++
++diff --git a/plat/intel/soc/common/include/platform_def.h b/plat/intel/soc/common/include/platform_def.h
++index 391d60a70..e4ceb2a3b 100644
++--- a/plat/intel/soc/common/include/platform_def.h
+++++ b/plat/intel/soc/common/include/platform_def.h
++@@ -164,8 +164,8 @@
++ /*******************************************************************************
++  * UART related constants
++  ******************************************************************************/
++-#define PLAT_UART0_BASE		(0xFFC02000)
++-#define PLAT_UART1_BASE		(0xFFC02100)
+++#define PLAT_UART1_BASE		(0xFFC02000)
+++#define PLAT_UART0_BASE		(0xFFC02100)
++ 
++ #define CRASH_CONSOLE_BASE	PLAT_UART0_BASE
++ #define PLAT_INTEL_UART_BASE	PLAT_UART0_BASE
++-- 
++2.27.0
++
+diff --git a/recipes-bsp/copy-engine/copy-engine-0.1.bb b/recipes-bsp/copy-engine/copy-engine-0.1.bb
+new file mode 100644
+index 0000000..bb89b3a
+--- /dev/null
++++ b/recipes-bsp/copy-engine/copy-engine-0.1.bb
+@@ -0,0 +1,36 @@
++SUMMARY = "copy-engine SW recipe"
++DESCRIPTION = "copy-engine SW on SoC notifies copy-engine IP registers on FPGA"
++AUTHOR = "Rodrigo Rojo <rodrigo.rojo@intel.com>"
++LICENSE = "BSD-3-Clause"
++LIC_FILES_CHKSUM = "file://${COMMON_LICENSE_DIR}/BSD-3-Clause;md5=550794465ba0ec5312d6919e203a55f9"
++
++inherit systemd
++SYSTEMD_AUTO_ENABLE = "enable"
++SYSTEMD_SERVICE_${PN} = "cpeng.service"
++
++SRC_URI = "file://copy-engine.c"
++SRC_URI += "file://cpeng.service"
++S = "${WORKDIR}"
++FILES_${PN} += "${systemd_unitdir}/system/cpeng.service"
++
++python do_display_banner() {
++    bb.plain("***********************************************");
++    bb.plain("*                                             *");
++    bb.plain("*  copy-engine SW                             *");
++    bb.plain("*                                             *");
++    bb.plain("***********************************************");
++}
++
++addtask display_banner before do_build
++do_compile() {
++	${CC} ${CFLAGS} ${LDFLAGS} copy-engine.c -o copy-engine
++}
++
++do_install() {
++	install -d ${D}${bindir}
++	install -m 0755 copy-engine ${D}${bindir}
++	install -d ${D}/${systemd_unitdir}/system
++	install -m 0644 ${WORKDIR}/cpeng.service ${D}/${systemd_unitdir}/system
++}
++
++
+diff --git a/recipes-bsp/copy-engine/files/S90cpengd b/recipes-bsp/copy-engine/files/S90cpengd
+new file mode 100755
+index 0000000..f9d111d
+--- /dev/null
++++ b/recipes-bsp/copy-engine/files/S90cpengd
+@@ -0,0 +1,51 @@
++#! /bin/sh
++### BEGIN INIT INFO
++# Provides:             cpengd
++# Required-Start:       $remote_fs $time
++# Required-Stop:        $remote_fs $time
++# Default-Start:        2 3 4 5
++# Default-Stop:         0 1 6
++# Short-Description:    Copy engine verify/heartbeat
++### END INIT INFO
++
++set -e
++
++
++waitpid ()
++{
++  pid=$1
++  # Give pid a chance to exit before we restart with a 5s timeout in 1s intervals
++  if [ -z "$pid" ]; then
++    return
++  fi
++  timeout=5;
++  while [ $timeout -gt 0 ]
++  do
++    timeout=$(( $timeout-1 ))
++    kill -0 $pid 2> /dev/null || break
++    sleep 1
++  done
++}
++
++case "$1" in
++  start)
++	echo -n "Starting copy-engine: "
++	start-stop-daemon -S copy-engine -- --heartbeat
++	echo "done"
++	;;
++  stop)
++	echo -n "Stopping copy-engine: "
++	start-stop-daemon -K -n copy-engine
++	echo "done"
++	;;
++  restart)
++	pid1=`pidof copy-engine`
++	$0 stop
++	waitpid $pid1
++	$0 start
++	;;
++  *)
++	echo "Usage: cpengd { start | stop | restart }" >&2
++	exit 1
++	;;
++esac
+diff --git a/recipes-bsp/copy-engine/files/copy-engine.c b/recipes-bsp/copy-engine/files/copy-engine.c
+new file mode 100644
+index 0000000..5b64fdb
+--- /dev/null
++++ b/recipes-bsp/copy-engine/files/copy-engine.c
+@@ -0,0 +1,226 @@
++#include <sys/mman.h>
++#include <sys/stat.h>
++#include <sys/types.h>
++#include <errno.h>
++#include <fcntl.h>
++#include <getopt.h>
++#include <signal.h>
++#include <stdio.h>
++#include <stdint.h>
++#include <stdlib.h>
++#include <string.h>
++#include <unistd.h>
++
++#define __SHORT_FILE__                                    \
++({                                                        \
++	const char *file = __FILE__;                      \
++	const char *p = file;                             \
++	while (*p)                                        \
++		++p;                                      \
++	while ((p > file) && ('/' != *p) && ('\\' != *p)) \
++		--p;                                      \
++	if (p > file)                                     \
++		++p;                                      \
++	p;                                                \
++})
++
++#define ERR(format, ...)                                 \
++fprintf(stderr, "%s:%u:%s() [ERROR] : " format "\n",     \
++	__SHORT_FILE__, __LINE__, __func__, ##__VA_ARGS__)
++
++#define DBG(format, ...)                                 \
++if (config.debug) \
++  fprintf(stderr, "%s:%u:%s() [DEBUG] : " format "\n",   \
++	__SHORT_FILE__, __LINE__, __func__, ##__VA_ARGS__)
++
++#define ERRNO(format, ...)                               \
++fprintf(stderr, "%s:%u:%s() [ERROR: %s] : " format "\n", \
++	__SHORT_FILE__, __LINE__, __func__, strerror(errno), ##__VA_ARGS__)
++
++#define HPS2HOST_RSP 0x0158
++#define KERNEL_VFY_RESET 0b0000
++#define KERNEL_VFY_SUCCESS 0b0100
++#define KERNEL_VFY_ERROR 0b1000
++#define KERNEL_VFY_RESERVED 0b1100
++#define SEC2USEC 1000000
++
++int QUIT;
++
++struct {
++	short foreground;
++	short heartbeat;
++	short debug;
++} config = { 0, 0, 0 };
++
++
++void sig_handler(int signal)
++{
++	QUIT = 1;
++}
++
++void daemonize()
++{
++	int fd = 0;
++	pid_t pid = fork();
++	if (pid < 0) {
++		ERRNO("first fork");
++		return;
++	}
++	if (pid > 0) exit(0);
++	if (setsid() < 0) {
++		ERRNO("setsid failure");
++		exit(1);
++	}
++	signal(SIGCHLD, SIG_IGN);
++	pid = fork();
++	if (pid < 0){
++		ERRNO("second fork");
++		exit(1);
++	}
++
++	if (pid > 0) {
++		exit(0);
++	}
++
++	umask(0);
++	for (fd = sysconf(_SC_OPEN_MAX); fd > 0; fd--) {
++		close(fd);
++	}
++
++	stdin = fopen("/dev/null", "r");
++	stdout = fopen("/dev/null", "w+");
++	stderr = fopen("/dev/null", "w+");
++}
++
++void heartbeat(uint32_t *ptr)
++{
++	if (!config.foreground)
++		daemonize();
++	uint32_t value = *ptr & 0xFFFF;
++	uint32_t count = 0;
++	signal(SIGTERM, sig_handler);
++	while (!QUIT) {
++		*ptr = (count++<<16) | value;
++		printf("heartbeat: 0x%x\n", *ptr);
++		usleep(1 * SEC2USEC);
++	}
++	printf("goodbye\n");
++}
++
++
++void print_usage(char *program)
++{
++	printf("%s [-H|--heartbeat] [-f|--foreground]\n", program);
++}
++
++
++char get_opt_char(int argc, char *argv[], int i, struct option *l_opts)
++{
++	while(l_opts->name) {
++		if (strlen(argv[i]) > 2 && !strncmp(argv[i], "--", 2)) {
++			if (!strcmp(l_opts->name, argv[i]+2)) {
++				return l_opts->val;
++			}
++		} else if (strlen(argv[i]) == 2 && argv[i][0] == '-') {
++			if (argv[i][1] == l_opts->val) {
++				return l_opts->val;
++			}
++		}
++		l_opts++;
++	}
++	return 0;
++}
++
++int process_args(int argc, char *argv[])
++{
++	if (argc == 1)
++		return 0;
++	struct option l_opts[] = {
++		{ "help", no_argument, NULL, 'h' },
++		{ "foreground", no_argument, NULL, 'f' },
++		{ "heartbeat", no_argument, NULL, 'H' },
++		{ "debug", no_argument, NULL, 'D' },
++		{0, 0, 0, 0}
++	};
++	char opt_ret = 0;
++	for (int i = 1; i < argc; ++i) {
++		opt_ret = get_opt_char(argc, argv, i, l_opts);
++		if (opt_ret == -1) {
++			break;
++		}
++		switch(opt_ret) {
++		case 'h':
++			print_usage(argv[0]);
++			return 1;
++		case 'f':
++			config.foreground = 1;
++			break;
++		case 'H':
++			config.heartbeat = 1;
++			break;
++		case 'D':
++			config.debug = 1;
++			break;
++		default:
++			printf("invalid command\n");
++			print_usage(argv[0]);
++			return 2;
++		}
++	}
++
++
++	return 0;
++}
++
++int main(int argc, char *argv[])
++{
++	int res = process_args(argc, argv);
++	if (res)
++		return res;
++	const char *devpath = "/dev/uio0";
++	DBG("opening %s", devpath);
++	int fd = open(devpath, O_RDWR);
++	if (fd < 0) {
++		ERRNO("could not open uio device: %s", devpath);
++		return errno;
++	}
++	// TODO: read size, offset, addr from:
++	// 	/sys/class/uio/uio0/device/{size, offset, addr}
++	size_t size = 0x1000;
++	size_t offset = 0x0;
++	// TODO: use dyanmic index based on /sys/class/uio/uio0/maps/map<index>
++	size_t index = 0;
++	DBG("getting page size...");
++	size_t pg_size = sysconf(_SC_PAGE_SIZE);
++	DBG("page size: %lu", pg_size);
++	DBG("mmap(NULL, %lu, PROT_READ|PROT_WRITE, MAP_SHARED, %d, %lu)",
++			size, fd, index * pg_size);
++	uint8_t *ptr = mmap(NULL,
++			    size,
++			    PROT_READ|PROT_WRITE,
++			    MAP_SHARED,
++			    fd,
++			    index * pg_size);
++	if (ptr == MAP_FAILED) {
++		ERRNO("could mmap uio map");
++		res = errno;
++		goto out_close;
++	}
++        DBG("getting pointer to mmio register (HOST_RSP)  @0x%p:", ptr + HPS2HOST_RSP);
++	uint32_t *rsp = (uint32_t*)(ptr + HPS2HOST_RSP);
++        DBG("value of register: 0x%x:", *rsp);
++        DBG("setting verify success");
++	*rsp |= KERNEL_VFY_SUCCESS;
++
++out_close:
++	close(fd);
++	if (!res)
++		printf("%s kernel boot notification...!\n", argv[0]);
++	else
++		ERR("%s, error with verify boot notification", argv[0]);
++	if (config.heartbeat) {
++		DBG("starting heartbeat");
++		heartbeat(rsp);
++	}
++	return res;
++}
+diff --git a/recipes-bsp/copy-engine/files/cpeng.service b/recipes-bsp/copy-engine/files/cpeng.service
+new file mode 100644
+index 0000000..64a3e7c
+--- /dev/null
++++ b/recipes-bsp/copy-engine/files/cpeng.service
+@@ -0,0 +1,8 @@
++[Unit]
++Description=copy-engine daemon to communicate with copy-engine FPGA IP
++
++[Service]
++ExecStart=/usr/bin/copy-engine -H -f
++
++[Install]
++WantedBy=multi-user.target
+diff --git a/recipes-bsp/u-boot/files/0001-HSD-14015124126-n6000-rename-n6010-to-n6000.patch b/recipes-bsp/u-boot/files/0001-HSD-14015124126-n6000-rename-n6010-to-n6000.patch
+new file mode 100644
+index 0000000..5bb6792
+--- /dev/null
++++ b/recipes-bsp/u-boot/files/0001-HSD-14015124126-n6000-rename-n6010-to-n6000.patch
+@@ -0,0 +1,178 @@
++From 2cc9958ced1591bb27c69e226c723727b20f3776 Mon Sep 17 00:00:00 2001
++From: Rodrigo Rojo <rodrigo.rojo@intel.com>
++Date: Fri, 15 Oct 2021 17:05:13 -0700
++Subject: [PATCH 1/5] HSD #14015124126: n6000: rename n6010 to n6000
++
++The name of the board is really the n6000; so change
++the filenames and documentation accordingly.
++When upstreamed, this patch should be squashed with
++83d2091167b9785b5cc471ff0c94dce9e019a66c.
++
++Signed-off-by: Rodrigo Rojo <rodrigo.rojo@intel.com>
++Acked-by: Matthew Gerlach <matthew.gerlach@linux.intel.com>
++Acked-by: Tien Fong Chee <tien.fong.chee@intel.com>
++---
++ arch/arm/dts/Makefile                                  |  2 +-
++ ...10-u-boot.dtsi => socfpga_agilex_n6000-u-boot.dtsi} |  0
++ ...cfpga_agilex_n6010.dts => socfpga_agilex_n6000.dts} |  2 +-
++ arch/arm/mach-socfpga/Kconfig                          | 10 +++++-----
++ board/intel/{agilex-n6010 => agilex-n6000}/MAINTAINERS |  4 ++--
++ board/intel/{agilex-n6010 => agilex-n6000}/Makefile    |  0
++ board/intel/{agilex-n6010 => agilex-n6000}/plldata.c   |  0
++ board/intel/{agilex-n6010 => agilex-n6000}/plldata.h   |  0
++ board/intel/{agilex-n6010 => agilex-n6000}/socfpga.c   |  0
++ ..._n6010_defconfig => socfpga_agilex_n6000_defconfig} |  6 +++---
++ .../{socfpga_agilex_n6010.h => socfpga_agilex_n6000.h} |  0
++ 11 files changed, 12 insertions(+), 12 deletions(-)
++ rename arch/arm/dts/{socfpga_agilex_n6010-u-boot.dtsi => socfpga_agilex_n6000-u-boot.dtsi} (100%)
++ rename arch/arm/dts/{socfpga_agilex_n6010.dts => socfpga_agilex_n6000.dts} (95%)
++ rename board/intel/{agilex-n6010 => agilex-n6000}/MAINTAINERS (56%)
++ rename board/intel/{agilex-n6010 => agilex-n6000}/Makefile (100%)
++ rename board/intel/{agilex-n6010 => agilex-n6000}/plldata.c (100%)
++ rename board/intel/{agilex-n6010 => agilex-n6000}/plldata.h (100%)
++ rename board/intel/{agilex-n6010 => agilex-n6000}/socfpga.c (100%)
++ rename configs/{socfpga_agilex_n6010_defconfig => socfpga_agilex_n6000_defconfig} (92%)
++ rename include/configs/{socfpga_agilex_n6010.h => socfpga_agilex_n6000.h} (100%)
++
++diff --git a/arch/arm/dts/Makefile b/arch/arm/dts/Makefile
++index 818c46b7c4..4e25fbf6fa 100644
++--- a/arch/arm/dts/Makefile
+++++ b/arch/arm/dts/Makefile
++@@ -400,7 +400,7 @@ dtb-$(CONFIG_TI816X) += dm8168-evm.dtb
++ dtb-$(CONFIG_THUNDERX) += thunderx-88xx.dtb
++ 
++ dtb-$(CONFIG_ARCH_SOCFPGA) +=				\
++-	socfpga_agilex_n6010.dtb			\
+++	socfpga_agilex_n6000.dtb			\
++ 	socfpga_agilex_socdk.dtb			\
++ 	socfpga_agilex_socdk_nand.dtb                   \
++ 	socfpga_agilex_socdk_qspi.dtb			\
++diff --git a/arch/arm/dts/socfpga_agilex_n6010-u-boot.dtsi b/arch/arm/dts/socfpga_agilex_n6000-u-boot.dtsi
++similarity index 100%
++rename from arch/arm/dts/socfpga_agilex_n6010-u-boot.dtsi
++rename to arch/arm/dts/socfpga_agilex_n6000-u-boot.dtsi
++diff --git a/arch/arm/dts/socfpga_agilex_n6010.dts b/arch/arm/dts/socfpga_agilex_n6000.dts
++similarity index 95%
++rename from arch/arm/dts/socfpga_agilex_n6010.dts
++rename to arch/arm/dts/socfpga_agilex_n6000.dts
++index baf277b616..8778e4fdf2 100644
++--- a/arch/arm/dts/socfpga_agilex_n6010.dts
+++++ b/arch/arm/dts/socfpga_agilex_n6000.dts
++@@ -5,7 +5,7 @@
++ #include "socfpga_agilex.dtsi"
++ 
++ / {
++-	model = "SoCFPGA Agilex n6010";
+++	model = "SoCFPGA Agilex n6000";
++ 
++ 	aliases {
++ 		serial0 = &uart0;
++diff --git a/arch/arm/mach-socfpga/Kconfig b/arch/arm/mach-socfpga/Kconfig
++index 4aebd4b899..fd360c409d 100644
++--- a/arch/arm/mach-socfpga/Kconfig
+++++ b/arch/arm/mach-socfpga/Kconfig
++@@ -103,8 +103,8 @@ config TARGET_SOCFPGA_N5X
++ 	select SPL_ALTERA_SDRAM
++ 	select SPL_CLK if SPL
++ 
++-config TARGET_SOCFPGA_AGILEX_N6010
++-	bool "Intel SOCFPGA n6010 (Agilex)"
+++config TARGET_SOCFPGA_AGILEX_N6000
+++	bool "Intel SOCFPGA n6000 (Agilex)"
++ 	select TARGET_SOCFPGA_AGILEX
++ 	select BINMAN if !SPL_ATF
++ 
++@@ -226,7 +226,7 @@ config TARGET_SOCFPGA_TERASIC_SOCKIT
++ endchoice
++ 
++ config SYS_BOARD
++-	default "agilex-n6010" if TARGET_SOCFPGA_AGILEX_N6010
+++	default "agilex-n6000" if TARGET_SOCFPGA_AGILEX_N6000
++ 	default "agilex-socdk" if TARGET_SOCFPGA_AGILEX_SOCDK
++ 	default "arria5-socdk" if TARGET_SOCFPGA_ARRIA5_SOCDK
++ 	default "arria10-socdk" if TARGET_SOCFPGA_ARRIA10_SOCDK
++@@ -247,7 +247,7 @@ config SYS_BOARD
++ 	default "vining_fpga" if TARGET_SOCFPGA_SOFTING_VINING_FPGA
++ 
++ config SYS_VENDOR
++-	default "intel" if TARGET_SOCFPGA_AGILEX_N6010
+++	default "intel" if TARGET_SOCFPGA_AGILEX_N6000
++ 	default "intel" if TARGET_SOCFPGA_AGILEX_SOCDK
++ 	default "intel" if TARGET_SOCFPGA_N5X_SOCDK
++ 	default "altera" if TARGET_SOCFPGA_ARRIA5_SOCDK
++@@ -268,7 +268,7 @@ config SYS_SOC
++ 	default "socfpga"
++ 
++ config SYS_CONFIG_NAME
++-	default "socfpga_agilex_n6010" if TARGET_SOCFPGA_AGILEX_N6010
+++	default "socfpga_agilex_n6000" if TARGET_SOCFPGA_AGILEX_N6000
++ 	default "socfpga_agilex_socdk" if TARGET_SOCFPGA_AGILEX_SOCDK
++ 	default "socfpga_arria5_secu1" if TARGET_SOCFPGA_ARRIA5_SECU1
++ 	default "socfpga_arria5_socdk" if TARGET_SOCFPGA_ARRIA5_SOCDK
++diff --git a/board/intel/agilex-n6010/MAINTAINERS b/board/intel/agilex-n6000/MAINTAINERS
++similarity index 56%
++rename from board/intel/agilex-n6010/MAINTAINERS
++rename to board/intel/agilex-n6000/MAINTAINERS
++index 34313df931..a2542124ed 100644
++--- a/board/intel/agilex-n6010/MAINTAINERS
+++++ b/board/intel/agilex-n6000/MAINTAINERS
++@@ -2,5 +2,5 @@ SOCFPGA BOARD
++ M:	Matthew Gerlach <matthew.gerlach@linux.intel.com>
++ S:	Maintained
++ F:	board/intel/agilex-acadp/
++-F:	include/configs/socfpga_agilex_n6010.h
++-F:	configs/socfpga_agilex_n6010_defconfig
+++F:	include/configs/socfpga_agilex_n6000.h
+++F:	configs/socfpga_agilex_n6000_defconfig
++diff --git a/board/intel/agilex-n6010/Makefile b/board/intel/agilex-n6000/Makefile
++similarity index 100%
++rename from board/intel/agilex-n6010/Makefile
++rename to board/intel/agilex-n6000/Makefile
++diff --git a/board/intel/agilex-n6010/plldata.c b/board/intel/agilex-n6000/plldata.c
++similarity index 100%
++rename from board/intel/agilex-n6010/plldata.c
++rename to board/intel/agilex-n6000/plldata.c
++diff --git a/board/intel/agilex-n6010/plldata.h b/board/intel/agilex-n6000/plldata.h
++similarity index 100%
++rename from board/intel/agilex-n6010/plldata.h
++rename to board/intel/agilex-n6000/plldata.h
++diff --git a/board/intel/agilex-n6010/socfpga.c b/board/intel/agilex-n6000/socfpga.c
++similarity index 100%
++rename from board/intel/agilex-n6010/socfpga.c
++rename to board/intel/agilex-n6000/socfpga.c
++diff --git a/configs/socfpga_agilex_n6010_defconfig b/configs/socfpga_agilex_n6000_defconfig
++similarity index 92%
++rename from configs/socfpga_agilex_n6010_defconfig
++rename to configs/socfpga_agilex_n6000_defconfig
++index f7fd358778..25bd0df1df 100644
++--- a/configs/socfpga_agilex_n6010_defconfig
+++++ b/configs/socfpga_agilex_n6000_defconfig
++@@ -10,10 +10,10 @@ CONFIG_ENV_OFFSET=0x200
++ CONFIG_SYS_SPI_U_BOOT_OFFS=0x02000000
++ CONFIG_DM_GPIO=y
++ CONFIG_SPL_TEXT_BASE=0xFFE00000
++-CONFIG_TARGET_SOCFPGA_AGILEX_N6010=y
+++CONFIG_TARGET_SOCFPGA_AGILEX_N6000=y
++ CONFIG_IDENT_STRING="socfpga_agilex"
++ CONFIG_SPL_FS_FAT=y
++-CONFIG_DEFAULT_DEVICE_TREE="socfpga_agilex_n6010"
+++CONFIG_DEFAULT_DEVICE_TREE="socfpga_agilex_n6000"
++ CONFIG_FIT=y
++ CONFIG_SPL_LOAD_FIT=y
++ CONFIG_SPL_LOAD_FIT_ADDRESS=0x02000000
++@@ -22,7 +22,7 @@ CONFIG_ARMV8_PSCI=y
++ # CONFIG_USE_SPL_FIT_GENERATOR is not set
++ CONFIG_BOOTDELAY=3
++ CONFIG_USE_BOOTARGS=y
++-CONFIG_BOOTARGS="earlycon uio_pdrv_genirq.of_id=generic-uio"
+++CONFIG_BOOTARGS="earlycon uio_pdrv_genirq.of_id=intel,hps-copy-engine"
++ CONFIG_USE_BOOTCOMMAND=y
++ CONFIG_BOOTCOMMAND="mw f9000158 1 ; bootm 0x02000000#linux_conf"
++ CONFIG_SPL_CACHE=y
++diff --git a/include/configs/socfpga_agilex_n6010.h b/include/configs/socfpga_agilex_n6000.h
++similarity index 100%
++rename from include/configs/socfpga_agilex_n6010.h
++rename to include/configs/socfpga_agilex_n6000.h
++-- 
++2.25.1
++
+diff --git a/recipes-bsp/u-boot/files/0002-HSD-14015468338-1-n6000-enable-ATF.patch b/recipes-bsp/u-boot/files/0002-HSD-14015468338-1-n6000-enable-ATF.patch
+new file mode 100644
+index 0000000..059b1d9
+--- /dev/null
++++ b/recipes-bsp/u-boot/files/0002-HSD-14015468338-1-n6000-enable-ATF.patch
+@@ -0,0 +1,139 @@
++From a8fa5f13e9b08611fa30896051b6e7033cf942ba Mon Sep 17 00:00:00 2001
++From: Matthew Gerlach <matthew.gerlach@linux.intel.com>
++Date: Thu, 4 Nov 2021 13:34:54 -0700
++Subject: [PATCH 2/5] HSD #14015468338-1: n6000: enable ATF
++
++Add configuration for n6000 to support ARM Trusted Firmware.
++
++Signed-off-by: Matthew Gerlach <matthew.gerlach@linux.intel.com>
++Acked-by: Rodrigo Rojo <rodrigo.rojo@intel.com>
++Acked-by: Tien Fong Chee <tien.fong.chee@intel.com>
++---
++ arch/arm/dts/socfpga_agilex_n6000-u-boot.dtsi |  8 ++
++ configs/socfpga_agilex_n6000_atf_defconfig    | 82 +++++++++++++++++++
++ 2 files changed, 90 insertions(+)
++ create mode 100644 configs/socfpga_agilex_n6000_atf_defconfig
++
++diff --git a/arch/arm/dts/socfpga_agilex_n6000-u-boot.dtsi b/arch/arm/dts/socfpga_agilex_n6000-u-boot.dtsi
++index 4704fd43a4..16f5935053 100644
++--- a/arch/arm/dts/socfpga_agilex_n6000-u-boot.dtsi
+++++ b/arch/arm/dts/socfpga_agilex_n6000-u-boot.dtsi
++@@ -29,7 +29,9 @@
++ 	u-boot {
++ 		fit {
++ 			images {
+++#if !defined(CONFIG_SPL_ATF)
++ 				/delete-node/ atf;
+++#endif
++ 
++ 				kernel_uboot {
++ 					description = "Linux Kernel";
++@@ -80,11 +82,17 @@
++ 
++ 			configurations {
++ 				conf {
+++#if !defined(CONFIG_SPL_ATF)
++ 					/delete-property/ firmware;
+++#endif
++ 				};
++ 
++ 				linux_conf {
++ 					description = "Intel SoC64 FPGA";
+++#if defined(CONFIG_SPL_ATF)
+++					firmware = "atf";
+++					loadables = "uboot";
+++#endif
++ 					kernel = "kernel_uboot";
++ 					fdt = "kernel_fdt";
++ 					ramdisk = "kernel_ramdisk";
++diff --git a/configs/socfpga_agilex_n6000_atf_defconfig b/configs/socfpga_agilex_n6000_atf_defconfig
++new file mode 100644
++index 0000000000..ac909bb6df
++--- /dev/null
+++++ b/configs/socfpga_agilex_n6000_atf_defconfig
++@@ -0,0 +1,82 @@
+++CONFIG_ARM=y
+++CONFIG_ARM_SMCCC=y
+++CONFIG_SPL_LDSCRIPT="arch/arm/mach-socfpga/u-boot-spl-soc64.lds"
+++CONFIG_ARCH_SOCFPGA=y
+++CONFIG_SYS_TEXT_BASE=0x200000
+++CONFIG_SYS_MALLOC_F_LEN=0x2000
+++CONFIG_NR_DRAM_BANKS=2
+++CONFIG_ENV_SIZE=0x1000
+++CONFIG_ENV_OFFSET=0x200
+++CONFIG_SYS_SPI_U_BOOT_OFFS=0x02000000
+++CONFIG_DM_GPIO=y
+++CONFIG_SPL_TEXT_BASE=0xFFE00000
+++CONFIG_TARGET_SOCFPGA_AGILEX_N6000=y
+++CONFIG_IDENT_STRING="socfpga_agilex"
+++CONFIG_SPL_FS_FAT=y
+++CONFIG_DEFAULT_DEVICE_TREE="socfpga_agilex_n6000"
+++CONFIG_FIT=y
+++CONFIG_SPL_LOAD_FIT=y
+++CONFIG_SPL_LOAD_FIT_ADDRESS=0x02000000
+++# CONFIG_ARMV8_SEC_FIRMWARE_SUPPORT=y
+++# CONFIG_ARMV8_PSCI=y
+++# CONFIG_USE_SPL_FIT_GENERATOR is not set
+++CONFIG_BOOTDELAY=3
+++CONFIG_USE_BOOTARGS=y
+++CONFIG_BOOTARGS="earlycon uio_pdrv_genirq.of_id=intel,hps-copy-engine"
+++CONFIG_USE_BOOTCOMMAND=y
+++CONFIG_BOOTCOMMAND="mw f9000158 1 ; bootm 0x02000000#linux_conf"
+++CONFIG_SPL_CACHE=y
+++CONFIG_SPL_SPI_LOAD=y
+++CONFIG_SPL_ATF=y
+++CONFIG_SPL_ATF_NO_PLATFORM_PARAM=y
+++CONFIG_SPL_BOARD_INIT=y
+++CONFIG_SPL_RAM_SUPPORT=y
+++CONFIG_SPL_RAM_DEVICE=y
+++CONFIG_BOARD_LATE_INIT=y
+++CONFIG_HUSH_PARSER=y
+++CONFIG_SYS_PROMPT="SOCFPGA_AGILEX # "
+++CONFIG_CMD_MEMTEST=y
+++CONFIG_CMD_GPIO=y
+++CONFIG_CMD_I2C=y
+++# CONFIG_CMD_MMC=y
+++CONFIG_CMD_SPI=y
+++CONFIG_CMD_USB=y
+++CONFIG_CMD_DHCP=y
+++CONFIG_CMD_MII=y
+++CONFIG_CMD_PING=y
+++CONFIG_CMD_CACHE=y
+++CONFIG_CMD_EXT4=y
+++CONFIG_CMD_FAT=y
+++CONFIG_CMD_FS_GENERIC=y
+++# CONFIG_ENV_IS_IN_MMC=y
+++CONFIG_NET_RANDOM_ETHADDR=y
+++CONFIG_SPL_DM_SEQ_ALIAS=y
+++CONFIG_SPL_ALTERA_SDRAM=y
+++CONFIG_DWAPB_GPIO=y
+++CONFIG_DM_I2C=y
+++CONFIG_SYS_I2C_DW=y
+++CONFIG_DM_MMC=y
+++# CONFIG_MMC_DW=y
+++CONFIG_MTD=y
+++CONFIG_SF_DEFAULT_MODE=0x2003
+++CONFIG_SPI_FLASH_SPANSION=y
+++CONFIG_SPI_FLASH_STMICRO=y
+++CONFIG_PHY_MICREL=y
+++CONFIG_PHY_MICREL_KSZ90X1=y
+++CONFIG_DM_ETH=y
+++CONFIG_ETH_DESIGNWARE=y
+++CONFIG_MII=y
+++CONFIG_DM_RESET=y
+++CONFIG_SPI=y
+++CONFIG_DM_SPI=y
+++CONFIG_DESIGNWARE_SPI=y
+++CONFIG_CADENCE_QSPI=y
+++CONFIG_USB=y
+++CONFIG_DM_USB=y
+++CONFIG_USB_DWC2=y
+++CONFIG_USB_STORAGE=y
+++CONFIG_DESIGNWARE_WATCHDOG=y
+++CONFIG_WDT=y
+++CONFIG_CMD_WDT=y
+++# CONFIG_SPL_USE_TINY_PRINTF is not set
+++CONFIG_PANIC_HANG=y
++-- 
++2.25.1
++
+diff --git a/recipes-bsp/u-boot/files/0003-HSD-14015468338-2-n6000-enable-VAB.patch b/recipes-bsp/u-boot/files/0003-HSD-14015468338-2-n6000-enable-VAB.patch
+new file mode 100644
+index 0000000..085bfcd
+--- /dev/null
++++ b/recipes-bsp/u-boot/files/0003-HSD-14015468338-2-n6000-enable-VAB.patch
+@@ -0,0 +1,134 @@
++From 37615e0a57f4d48c6eeced4eea1f90946a8736a1 Mon Sep 17 00:00:00 2001
++From: Matthew Gerlach <matthew.gerlach@linux.intel.com>
++Date: Thu, 4 Nov 2021 14:13:39 -0700
++Subject: [PATCH 3/5] HSD #14015468338-2: n6000: enable VAB
++
++Add configuration for n6000 to support Vendor Authenticated
++Boot.
++
++Signed-off-by: Matthew Gerlach <matthew.gerlach@linux.intel.com>
++Acked-by: Rodrigo Rojo <rodrigo.rojo@intel.com>
++Acked-by: Tien Fong Chee <tien.fong.chee@intel.com>
++---
++ arch/arm/dts/socfpga_agilex_n6000-u-boot.dtsi | 17 ++++
++ configs/socfpga_agilex_n6000_vab_defconfig    | 83 +++++++++++++++++++
++ 2 files changed, 100 insertions(+)
++ create mode 100644 configs/socfpga_agilex_n6000_vab_defconfig
++
++diff --git a/arch/arm/dts/socfpga_agilex_n6000-u-boot.dtsi b/arch/arm/dts/socfpga_agilex_n6000-u-boot.dtsi
++index 16f5935053..7dcdffcdaa 100644
++--- a/arch/arm/dts/socfpga_agilex_n6000-u-boot.dtsi
+++++ b/arch/arm/dts/socfpga_agilex_n6000-u-boot.dtsi
++@@ -103,3 +103,20 @@
++ 
++ 	/delete-node/ kernel;
++ };
+++
+++#if defined(CONFIG_SOCFPGA_SECURE_VAB_AUTH)
+++
+++&kernel_uboot_blob {
+++	filename = "signed-Image";
+++};
+++
+++&kernel_uboot_fdt_blob {
+++	filename = "signed-linux.dtb";
+++};
+++
+++&kernel_ramdisk_blob {
+++	filename = "signed-rootfs.cpio";
+++};
+++
+++#endif
+++
++diff --git a/configs/socfpga_agilex_n6000_vab_defconfig b/configs/socfpga_agilex_n6000_vab_defconfig
++new file mode 100644
++index 0000000000..22ca6c46fd
++--- /dev/null
+++++ b/configs/socfpga_agilex_n6000_vab_defconfig
++@@ -0,0 +1,83 @@
+++CONFIG_ARM=y
+++CONFIG_ARM_SMCCC=y
+++CONFIG_SPL_LDSCRIPT="arch/arm/mach-socfpga/u-boot-spl-soc64.lds"
+++CONFIG_ARCH_SOCFPGA=y
+++CONFIG_SYS_TEXT_BASE=0x200000
+++CONFIG_SYS_MALLOC_F_LEN=0x2000
+++CONFIG_NR_DRAM_BANKS=2
+++CONFIG_ENV_SIZE=0x1000
+++CONFIG_ENV_OFFSET=0x200
+++CONFIG_SYS_SPI_U_BOOT_OFFS=0x02000000
+++CONFIG_DM_GPIO=y
+++CONFIG_SPL_TEXT_BASE=0xFFE00000
+++CONFIG_TARGET_SOCFPGA_AGILEX_N6000=y
+++CONFIG_IDENT_STRING="socfpga_agilex"
+++CONFIG_SPL_FS_FAT=y
+++CONFIG_DEFAULT_DEVICE_TREE="socfpga_agilex_n6000"
+++CONFIG_FIT=y
+++CONFIG_SPL_LOAD_FIT=y
+++CONFIG_SPL_LOAD_FIT_ADDRESS=0x02000000
+++# CONFIG_ARMV8_SEC_FIRMWARE_SUPPORT=y
+++# CONFIG_ARMV8_PSCI=y
+++# CONFIG_USE_SPL_FIT_GENERATOR is not set
+++CONFIG_BOOTDELAY=3
+++CONFIG_USE_BOOTARGS=y
+++CONFIG_BOOTARGS="earlycon uio_pdrv_genirq.of_id=intel,hps-copy-engine"
+++CONFIG_USE_BOOTCOMMAND=y
+++CONFIG_BOOTCOMMAND="mw f9000158 1 ; bootm 0x02000000#linux_conf"
+++CONFIG_SPL_CACHE=y
+++CONFIG_SPL_SPI_LOAD=y
+++CONFIG_SPL_ATF=y
+++CONFIG_SOCFPGA_SECURE_VAB_AUTH=y
+++CONFIG_SPL_ATF_NO_PLATFORM_PARAM=y
+++CONFIG_SPL_BOARD_INIT=y
+++CONFIG_SPL_RAM_SUPPORT=y
+++CONFIG_SPL_RAM_DEVICE=y
+++CONFIG_BOARD_LATE_INIT=y
+++CONFIG_HUSH_PARSER=y
+++CONFIG_SYS_PROMPT="SOCFPGA_AGILEX # "
+++CONFIG_CMD_MEMTEST=y
+++CONFIG_CMD_GPIO=y
+++CONFIG_CMD_I2C=y
+++# CONFIG_CMD_MMC=y
+++CONFIG_CMD_SPI=y
+++CONFIG_CMD_USB=y
+++CONFIG_CMD_DHCP=y
+++CONFIG_CMD_MII=y
+++CONFIG_CMD_PING=y
+++CONFIG_CMD_CACHE=y
+++CONFIG_CMD_EXT4=y
+++CONFIG_CMD_FAT=y
+++CONFIG_CMD_FS_GENERIC=y
+++# CONFIG_ENV_IS_IN_MMC=y
+++CONFIG_NET_RANDOM_ETHADDR=y
+++CONFIG_SPL_DM_SEQ_ALIAS=y
+++CONFIG_SPL_ALTERA_SDRAM=y
+++CONFIG_DWAPB_GPIO=y
+++CONFIG_DM_I2C=y
+++CONFIG_SYS_I2C_DW=y
+++CONFIG_DM_MMC=y
+++# CONFIG_MMC_DW=y
+++CONFIG_MTD=y
+++CONFIG_SF_DEFAULT_MODE=0x2003
+++CONFIG_SPI_FLASH_SPANSION=y
+++CONFIG_SPI_FLASH_STMICRO=y
+++CONFIG_PHY_MICREL=y
+++CONFIG_PHY_MICREL_KSZ90X1=y
+++CONFIG_DM_ETH=y
+++CONFIG_ETH_DESIGNWARE=y
+++CONFIG_MII=y
+++CONFIG_DM_RESET=y
+++CONFIG_SPI=y
+++CONFIG_DM_SPI=y
+++CONFIG_DESIGNWARE_SPI=y
+++CONFIG_CADENCE_QSPI=y
+++CONFIG_USB=y
+++CONFIG_DM_USB=y
+++CONFIG_USB_DWC2=y
+++CONFIG_USB_STORAGE=y
+++CONFIG_DESIGNWARE_WATCHDOG=y
+++CONFIG_WDT=y
+++CONFIG_CMD_WDT=y
+++# CONFIG_SPL_USE_TINY_PRINTF is not set
+++CONFIG_PANIC_HANG=y
++-- 
++2.25.1
++
+diff --git a/recipes-bsp/u-boot/files/0004-n6000-update-device-tree-for-uart1-usage.patch b/recipes-bsp/u-boot/files/0004-n6000-update-device-tree-for-uart1-usage.patch
+new file mode 100644
+index 0000000..4e0da19
+--- /dev/null
++++ b/recipes-bsp/u-boot/files/0004-n6000-update-device-tree-for-uart1-usage.patch
+@@ -0,0 +1,70 @@
++From 7cb2fca61d9be98737f44b38d6aebaa8b8921646 Mon Sep 17 00:00:00 2001
++From: Matthew Gerlach <matthew.gerlach@linux.intel.com>
++Date: Thu, 31 Mar 2022 16:15:33 -0700
++Subject: [PATCH 4/5] n6000: update device tree for uart1 usage
++
++Turn on uart1 and redirect the console to it.  Keep
++uart0 turned on as well.
++
++Signed-off-by: Matthew Gerlach <matthew.gerlach@linux.intel.com>
++---
++ arch/arm/dts/socfpga_agilex-u-boot.dtsi | 4 ++++
++ arch/arm/dts/socfpga_agilex.dtsi        | 1 +
++ arch/arm/dts/socfpga_agilex_n6000.dts   | 7 ++++++-
++ 3 files changed, 11 insertions(+), 1 deletion(-)
++
++diff --git a/arch/arm/dts/socfpga_agilex-u-boot.dtsi b/arch/arm/dts/socfpga_agilex-u-boot.dtsi
++index ca71afa2c1..63f1c3e63c 100644
++--- a/arch/arm/dts/socfpga_agilex-u-boot.dtsi
+++++ b/arch/arm/dts/socfpga_agilex-u-boot.dtsi
++@@ -167,6 +167,10 @@
++ 	u-boot,dm-pre-reloc;
++ };
++ 
+++&uart1 {
+++	u-boot,dm-pre-reloc;
+++};
+++
++ &watchdog0 {
++ 	u-boot,dm-pre-reloc;
++ };
++diff --git a/arch/arm/dts/socfpga_agilex.dtsi b/arch/arm/dts/socfpga_agilex.dtsi
++index bd7f0c4182..d9681ef6b7 100644
++--- a/arch/arm/dts/socfpga_agilex.dtsi
+++++ b/arch/arm/dts/socfpga_agilex.dtsi
++@@ -463,6 +463,7 @@
++ 			resets = <&rst UART1_RESET>;
++ 			clocks = <&clkmgr AGILEX_L4_SP_CLK>;
++ 			status = "disabled";
+++			clock-frequency = <100000000>;
++ 		};
++ 
++ 		usbphy0: usbphy@0 {
++diff --git a/arch/arm/dts/socfpga_agilex_n6000.dts b/arch/arm/dts/socfpga_agilex_n6000.dts
++index 8778e4fdf2..9e94bbec63 100644
++--- a/arch/arm/dts/socfpga_agilex_n6000.dts
+++++ b/arch/arm/dts/socfpga_agilex_n6000.dts
++@@ -8,7 +8,8 @@
++ 	model = "SoCFPGA Agilex n6000";
++ 
++ 	aliases {
++-		serial0 = &uart0;
+++		serial1 = &uart0;
+++		serial0 = &uart1;
++ 		ethernet0 = &gmac0;
++ 		ethernet1 = &gmac1;
++ 		ethernet2 = &gmac2;
++@@ -38,6 +39,10 @@
++ 	status = "okay";
++ };
++ 
+++&uart1 {
+++	status = "okay";
+++};
+++
++ &spi0 {
++ 	status = "okay";
++ 	bits-per-word = <16>;
++-- 
++2.25.1
++
+diff --git a/recipes-bsp/u-boot/files/0005-n6000-update-device-tree-for-2GB-of-DDR.patch b/recipes-bsp/u-boot/files/0005-n6000-update-device-tree-for-2GB-of-DDR.patch
+new file mode 100644
+index 0000000..e28449b
+--- /dev/null
++++ b/recipes-bsp/u-boot/files/0005-n6000-update-device-tree-for-2GB-of-DDR.patch
+@@ -0,0 +1,31 @@
++From 239743e0a0a675cc0f13caaed056b981d8ce2d08 Mon Sep 17 00:00:00 2001
++From: Matthew Gerlach <matthew.gerlach@linux.intel.com>
++Date: Mon, 2 May 2022 14:04:29 -0700
++Subject: [PATCH 5/5] n6000: update device tree for 2GB of DDR
++
++The Hard Processor System (HPS) on the n6000 has 2GB of DDR
++connected.  Update the devicetree with the correct memory size.
++
++Signed-off-by: Matthew Gerlach <matthew.gerlach@linux.intel.com>
++---
++ arch/arm/dts/socfpga_agilex_n6000-u-boot.dtsi | 4 ++--
++ 1 file changed, 2 insertions(+), 2 deletions(-)
++
++diff --git a/arch/arm/dts/socfpga_agilex_n6000-u-boot.dtsi b/arch/arm/dts/socfpga_agilex_n6000-u-boot.dtsi
++index 7dcdffcdaa..7092c2b1bc 100644
++--- a/arch/arm/dts/socfpga_agilex_n6000-u-boot.dtsi
+++++ b/arch/arm/dts/socfpga_agilex_n6000-u-boot.dtsi
++@@ -14,8 +14,8 @@
++ 	};
++ 
++ 	memory {
++-		/* 1GB */
++-		reg = <0 0x00000000 0 0x40000000>;
+++		/* 2GB */
+++		reg = <0 0x00000000 0 0x80000000>;
++ 	};
++ 
++ 	chosen {
++-- 
++2.25.1
++
+diff --git a/recipes-bsp/u-boot/u-boot-socfpga-env.bb b/recipes-bsp/u-boot/u-boot-socfpga-env.bb
+index ed76af7..97e548a 100644
+--- a/recipes-bsp/u-boot/u-boot-socfpga-env.bb
++++ b/recipes-bsp/u-boot/u-boot-socfpga-env.bb
+@@ -14,6 +14,7 @@ SRC_URI_agilex = "\
+ 			 ${@bb.utils.contains("UBOOT_CONFIG", "agilex-socdk-atf", "${ENV_REPO}/agilex-socdk-atf/u-boot-env.txt;name=agilex-socdk-atf-env", "", d)} \
+ 			 ${@bb.utils.contains("UBOOT_CONFIG", "agilex-socdk-qspi", "${ENV_REPO}/agilex-socdk-qspi/u-boot-env.txt;name=agilex-socdk-qspi-env", "", d)} \
+ 			 ${@bb.utils.contains("UBOOT_CONFIG", "agilex-socdk-qspi-atf", "${ENV_REPO}/agilex-socdk-qspi-atf/u-boot-env.txt;name=agilex-socdk-qspi-atf-env", "", d)} \
++			 ${@bb.utils.contains("UBOOT_CONFIG", "agilex-n6000", "${ENV_REPO}/agilex-socdk/u-boot-env.txt;name=agilex-socdk-env", "", d)} \
+ 			 "
+ 
+ SRC_URI_stratix10 = "\
+diff --git a/recipes-bsp/u-boot/u-boot-socfpga_v2021.07.bbappend b/recipes-bsp/u-boot/u-boot-socfpga_v2021.07.bbappend
+index 8e0b52e..975970e 100644
+--- a/recipes-bsp/u-boot/u-boot-socfpga_v2021.07.bbappend
++++ b/recipes-bsp/u-boot/u-boot-socfpga_v2021.07.bbappend
+@@ -5,20 +5,37 @@ DEPENDS_append_agilex += "arm-trusted-firmware bash u-boot-socfpga-scr u-boot-so
+ DEPENDS_append_stratix10 += "arm-trusted-firmware bash u-boot-socfpga-scr u-boot-socfpga-env"
+ DEPENDS_append_arria10 += "hw-ref-design u-boot-socfpga-env"
+ 
++SRC_URI_append += "${@bb.utils.contains('IMAGE_TYPE', 'n6000', 'file://0001-HSD-14015124126-n6000-rename-n6010-to-n6000.patch', '', d)}"
++SRC_URI_append += "${@bb.utils.contains('IMAGE_TYPE', 'n6000', 'file://0002-HSD-14015468338-1-n6000-enable-ATF.patch', '', d)}"
++SRC_URI_append += "${@bb.utils.contains('IMAGE_TYPE', 'n6000', 'file://0003-HSD-14015468338-2-n6000-enable-VAB.patch', '', d)}"
++SRC_URI_append += "${@bb.utils.contains('IMAGE_TYPE', 'n6000', 'file://0004-n6000-update-device-tree-for-uart1-usage.patch', '', d)}"
++SRC_URI_append += "${@bb.utils.contains('IMAGE_TYPE', 'n6000', 'file://0005-n6000-update-device-tree-for-2GB-of-DDR.patch', '', d)}"
++
++UBOOT_CONFIG[agilex-n6000] = "socfpga_agilex_n6000_defconfig"
+ inherit deploy
+ 
++
+ do_compile[deptask] = "do_deploy"
+ 
+ do_compile_prepend() {
+ 	if ${@bb.utils.contains("MACHINE", "n5x", "true", "false", d)} || ${@bb.utils.contains("MACHINE", "agilex", "true", "false", d)} || ${@bb.utils.contains("MACHINE", "stratix10", "true", "false", d)} ; then
+ 		cp ${DEPLOY_DIR_IMAGE}/bl31.bin ${B}/${config}/bl31.bin
+ 		cp ${DEPLOY_DIR_IMAGE}/bl31.bin ${S}/bl31.bin
++
+ 		cp ${DEPLOY_DIR_IMAGE}/Image ${B}/${config}/Image
+ 		cp ${DEPLOY_DIR_IMAGE}/Image ${S}/Image
+-		cp ${DEPLOY_DIR_IMAGE}/socfpga_${MACHINE}_socdk.dtb ${B}/${config}/linux.dtb
+-		cp ${DEPLOY_DIR_IMAGE}/socfpga_${MACHINE}_socdk.dtb ${S}/linux.dtb
++
+ 		cp ${DEPLOY_DIR_IMAGE}/u-boot.txt ${B}/${config}/u-boot.txt
+ 		cp ${DEPLOY_DIR_IMAGE}/u-boot.txt ${S}/u-boot.txt
++
++		if ${@bb.utils.contains("IMAGE_TYPE", "n6000", "true", "false", d)} ; then
++			cp ${DEPLOY_DIR_IMAGE}/socfpga_${MACHINE}_n6000.dtb ${B}/socfpga_${MACHINE}_${IMAGE_TYPE}_defconfig/linux.dtb
++			cp ${DEPLOY_DIR_IMAGE}/bl31.bin ${B}/socfpga_${MACHINE}_${IMAGE_TYPE}_defconfig/bl31.bin
++			cp ${DEPLOY_DIR_IMAGE}/Image ${B}/socfpga_${MACHINE}_${IMAGE_TYPE}_defconfig/Image
++		else
++			cp ${DEPLOY_DIR_IMAGE}/socfpga_${MACHINE}_socdk.dtb ${B}/${config}/linux.dtb
++			cp ${DEPLOY_DIR_IMAGE}/socfpga_${MACHINE}_socdk.dtb ${S}/linux.dtb
++		fi
+ 	fi
+ }
+ 
+@@ -45,18 +62,17 @@ do_deploy_append() {
+ 	install -m 644 ${B}/${config}/spl/u-boot-spl.dtb ${DEPLOYDIR}/u-boot-spl.dtb
+ 	install -m 644 ${B}/${config}/spl/u-boot-spl-dtb.bin ${DEPLOYDIR}/u-boot-spl-dtb.bin
+ 	install -m 644 ${B}/${config}/spl/u-boot-spl.map ${DEPLOYDIR}/u-boot-spl.map
+-
+ 	if ${@bb.utils.contains("MACHINE", "n5x", "true", "false", d)} || ${@bb.utils.contains("MACHINE", "agilex", "true", "false", d)} || ${@bb.utils.contains("MACHINE", "stratix10", "true", "false", d)} ; then
+ 		install -m 744 ${B}/${config}/u-boot.fit.fit ${DEPLOYDIR}/u-boot.fit.fit
+ 		install -m 744 ${B}/${config}/u-boot.fit.itb ${DEPLOYDIR}/u-boot.fit.itb
+ 		install -m 744 ${B}/${config}/u-boot.itb ${DEPLOYDIR}/u-boot.itb
+ 		install -m 644 ${B}/${config}/spl/u-boot-spl-dtb.hex ${DEPLOYDIR}/u-boot-spl-dtb.hex
+-
+-		install -m 744 ${B}/${config}/kernel.fit.fit ${DEPLOYDIR}/kernel.fit.fit
+-		install -m 744 ${B}/${config}/kernel.fit.itb ${DEPLOYDIR}/kernel.fit.itb
+-		install -m 744 ${B}/${config}/kernel.itb ${DEPLOYDIR}/kernel.itb
+-
+-		install -m 744 ${B}/${config}/u-boot.scr ${DEPLOYDIR}/u-boot.scr
++		if ${@bb.utils.contains("IMAGE_TYPE", "n6000", "false", "true", d)} ; then
++			install -m 744 ${B}/${config}/kernel.fit.fit ${DEPLOYDIR}/kernel.fit.fit
++			install -m 744 ${B}/${config}/kernel.fit.itb ${DEPLOYDIR}/kernel.fit.itb
++			install -m 744 ${B}/${config}/kernel.itb ${DEPLOYDIR}/kernel.itb
++			install -m 744 ${B}/${config}/u-boot.scr ${DEPLOYDIR}/u-boot.scr
++		fi
+ 	fi
+ }
+ 
+diff --git a/recipes-images/poky/n6000-image-minimal.bb b/recipes-images/poky/n6000-image-minimal.bb
+new file mode 100644
+index 0000000..e0b15d5
+--- /dev/null
++++ b/recipes-images/poky/n6000-image-minimal.bb
+@@ -0,0 +1,19 @@
++require recipes-core/images/core-image-base.bb
++require core-image-essential.inc
++
++IMAGE_INSTALL += "packagegroup-common-essential"
++IMAGE_INSTALL += "packagegroup-network-essential"
++IMAGE_INSTALL += "packagegroup-core-ssh-openssh"
++
++IMAGE_INSTALL += "copy-engine-0.1"
++IMAGE_INSTALL += "linuxptp"
++IMAGE_INSTALL += "minicom"
++IMAGE_INSTALL += "ppp"
++
++export IMAGE_BASENAME = "n6000-image-minimal"
++
++ROOTFS_POSTPROCESS_COMMAND += "remove_image; "
++remove_image() {
++	rm ${IMAGE_ROOTFS}/boot/Image*
++	echo "cpio: ${DEPLOY_DIR_IMAGE}/${IMAGE_BASENAME}-${MACHINE}.cpio" >> ${DEPLOY_DIR_IMAGE}/uboot-cfg.yaml
++}
+diff --git a/recipes-kernel/linux/linux-socfpga-lts/0001-arm64-dts-intel-add-device-tree-for-n6000.patch b/recipes-kernel/linux/linux-socfpga-lts/0001-arm64-dts-intel-add-device-tree-for-n6000.patch
+new file mode 100644
+index 0000000..ea544db
+--- /dev/null
++++ b/recipes-kernel/linux/linux-socfpga-lts/0001-arm64-dts-intel-add-device-tree-for-n6000.patch
+@@ -0,0 +1,121 @@
++From 1aa48d9a59c5e0953509c5b5c655947e2795b903 Mon Sep 17 00:00:00 2001
++From: Matthew Gerlach <matthew.gerlach@linux.intel.com>
++Date: Tue, 31 Aug 2021 11:22:24 -0700
++Subject: [PATCH] arm64: dts: intel: add device tree for n6000
++
++Add a device tree for the n6000 instantiation of Agilex
++Hard Processor System (HPS).
++
++Signed-off-by: Matthew Gerlach <matthew.gerlach@linux.intel.com>
++Acked-by: Krzysztof Kozlowski <krzysztof.kozlowski@linaro.org>
++---
++v5:
++  - add Acked-by: Krzysztof Kozlowski
++
++v3:
++  - add unit number to memory node
++  - remove unused label
++  - remove 0x from #address-cells/#size-cells values
++  - change hps_cp_eng@0 to dma-controller@0
++  - remove spi node with unaccepted compatible value
++
++v2:
++  - fix copy engine node name
++  - fix compatible field for copy engine
++  - remove redundant status field
++  - add compatibility field for the board
++  - fix SPDX
++  - fix how osc1 clock frequency is set
++---
++ arch/arm64/boot/dts/intel/Makefile            |  3 +-
++ .../boot/dts/intel/socfpga_agilex_n6000.dts   | 66 +++++++++++++++++++
++ 2 files changed, 68 insertions(+), 1 deletion(-)
++ create mode 100644 arch/arm64/boot/dts/intel/socfpga_agilex_n6000.dts
++
++diff --git a/arch/arm64/boot/dts/intel/Makefile b/arch/arm64/boot/dts/intel/Makefile
++index b3c03f4f3c8c..3329242a6fb2 100644
++--- a/arch/arm64/boot/dts/intel/Makefile
+++++ b/arch/arm64/boot/dts/intel/Makefile
++@@ -1,5 +1,6 @@
++ # SPDX-License-Identifier: GPL-2.0-only
++-dtb-$(CONFIG_ARCH_AGILEX) += socfpga_agilex_socdk.dtb \
+++dtb-$(CONFIG_ARCH_AGILEX) += socfpga_agilex_n6000.dtb \
+++			     socfpga_agilex_socdk.dtb \
++ 			     socfpga_agilex_socdk_nand.dtb
++ dtb-$(CONFIG_ARCH_KEEMBAY) += keembay-evm.dtb
++ dtb-$(CONFIG_ARCH_DM) += socfpga_dm_simics.dtb
++diff --git a/arch/arm64/boot/dts/intel/socfpga_agilex_n6000.dts b/arch/arm64/boot/dts/intel/socfpga_agilex_n6000.dts
++new file mode 100644
++index 000000000000..6231a69204b1
++--- /dev/null
+++++ b/arch/arm64/boot/dts/intel/socfpga_agilex_n6000.dts
++@@ -0,0 +1,66 @@
+++// SPDX-License-Identifier: GPL-2.0
+++/*
+++ * Copyright (C) 2021-2022, Intel Corporation
+++ */
+++#include "socfpga_agilex.dtsi"
+++
+++/ {
+++	model = "SoCFPGA Agilex n6000";
+++	compatible = "intel,socfpga-agilex-n6000", "intel,socfpga-agilex";
+++
+++	aliases {
+++		serial0 = &uart1;
+++		serial1 = &uart0;
+++		ethernet0 = &gmac0;
+++		ethernet1 = &gmac1;
+++		ethernet2 = &gmac2;
+++	};
+++
+++	chosen {
+++		stdout-path = "serial0:115200n8";
+++	};
+++
+++	memory@0 {
+++		device_type = "memory";
+++		/* We expect the bootloader to fill in the reg */
+++		reg = <0 0 0 0>;
+++	};
+++
+++	soc {
+++		bus@80000000 {
+++			compatible = "simple-bus";
+++			reg = <0x80000000 0x60000000>,
+++				<0xf9000000 0x00100000>;
+++			reg-names = "axi_h2f", "axi_h2f_lw";
+++			#address-cells = <2>;
+++			#size-cells = <1>;
+++			ranges = <0x00000000 0x00000000 0xf9000000 0x00001000>;
+++
+++			dma-controller@0 {
+++				compatible = "intel,hps-copy-engine";
+++				reg = <0x00000000 0x00000000 0x00001000>;
+++				#dma-cells = <1>;
+++			};
+++		};
+++	};
+++};
+++
+++&osc1 {
+++	clock-frequency = <25000000>;
+++};
+++
+++&uart0 {
+++	status = "okay";
+++};
+++
+++&uart1 {
+++	status = "okay";
+++};
+++
+++&watchdog0 {
+++	status = "okay";
+++};
+++
+++&fpga_mgr {
+++	status = "disabled";
+++};
++-- 
++2.25.1
++
+diff --git a/recipes-kernel/linux/linux-socfpga-lts/config_ppp.cfg b/recipes-kernel/linux/linux-socfpga-lts/config_ppp.cfg
+new file mode 100644
+index 0000000..94c3299
+--- /dev/null
++++ b/recipes-kernel/linux/linux-socfpga-lts/config_ppp.cfg
+@@ -0,0 +1,9 @@
++CONFIG_PPP=m
++CONFIG_PPP_BSDCOMP=m
++CONFIG_PPP_DEFLATE=m
++CONFIG_PPP_FILTER=y
++CONFIG_PPP_MPPE=m
++CONFIG_PPP_MULTILINK=y
++CONFIG_PPPOE=m
++CONFIG_PPP_ASYNC=m
++CONFIG_PPP_SYNC_TTY=m
+diff --git a/recipes-kernel/linux/linux-socfpga-lts_5.10.bbappend b/recipes-kernel/linux/linux-socfpga-lts_5.10.bbappend
+index c21867e..4af79ef 100644
+--- a/recipes-kernel/linux/linux-socfpga-lts_5.10.bbappend
++++ b/recipes-kernel/linux/linux-socfpga-lts_5.10.bbappend
+@@ -10,6 +10,8 @@ SRC_URI_append_agilex += "\
+ 			 ${@bb.utils.contains("IMAGE_TYPE", "pr", "${DTS_REPO}/agilex/pr/0001-socfpga_agilex_socdk-include-reference-design-dtsi.patch;name=agilex_gsrd_dts", "", d)} \
+ 			 ${@bb.utils.contains("IMAGE_TYPE", "pr", "${DTS_REPO}/agilex/pr/5.10/0001-dts-arm64-intel-enable-FPGA-PR-DTBs-for-Agilex.patch;name=agilex_pr_dts", "", d)} \
+ 			 ${@bb.utils.contains("IMAGE_TYPE", "sgmii", "${DTS_REPO}/agilex/sgmii/0001-dts-arm64-intel-enable-Agilex-SGMII-support.patch;name=agilex_sgmii_dts", "", d)} \
++			 ${@bb.utils.contains("IMAGE_TYPE", "n6000", "file://0001-arm64-dts-intel-add-device-tree-for-n6000.patch", "", d)} \
++			 ${@bb.utils.contains("IMAGE_TYPE", "n6000", "file://config_ppp.cfg", "", d)} \
+ 			 "
+ 
+ #rename ghrd folder to gsrd folder internally
+@@ -29,10 +31,14 @@ SRC_URI_append_arria10 += "\
+ 			${@bb.utils.contains("IMAGE_TYPE", "sgmii", "${DTS_REPO}/arria10/sgmii/0001-socfpga_arria10_socdk-sgmii-include-reference-design.patch;name=a10_sgmii_dts", "", d)} \
+ 			${@bb.utils.contains("IMAGE_TYPE", "tse", "${DTS_REPO}/arria10/tse/0001-socfpga_arria10_socdk-tse-include-reference-design-d.patch;name=a10_tse_dts", "", d)} \
+ 			"
++KERNEL_DEVICETREE_append += "\
++			 ${@bb.utils.contains("IMAGE_TYPE", "n6000", " intel/socfpga_agilex_n6000.dtb", "", d)} \
++			 "
+ 
+ SRC_URI_append_cyclone5 += "${DTS_REPO}/cyclone5/gsrd/0001-socfpga_cyclone5_socdk-include-reference-design-dtsi.patch;name=cyclone5_dts"
+ 
+ SRC_URI[agilex_gsrd_dts.sha256sum] = "c8ea92c0b3e4e65ab23ee8f50ce25aaa39d51c01f1af8cafda3ab50c725afcee"
++SRC_URI[agilex_n6000_dts.sha256sum] = "b4f2a48f42954d45f60bc20af3c92e2236fc1982bb0802b2dfd1d5f545f43fad"
+ SRC_URI[agilex_pr_dts.sha256sum] = "ae178279ba565061efdfae314ee5978c03a1cbf3f0034cd9472bf670aee119b7"
+ SRC_URI[agilex_sgmii_dts.sha256sum] = "8e79c13f188d09c93425830cddcdbecb39d63a0538a2a75e6d21c0af0b2f336c"
+ 
+@@ -63,3 +69,4 @@ do_install_append() {
+ 		install -D -m 0644 ${D}/boot/persona0.dtb ${D}/boot/persona0.dtbo
+ 	fi
+ }
++
