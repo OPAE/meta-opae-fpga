@@ -20,7 +20,7 @@ repos:
     keep: true
     add_layers: true
   - name: meta-openembedded
-    url: git://git.openembedded.org/meta-openembedded.git
+    url: https://github.com/openembedded/meta-openembedded.git
     branch: hardknott
     add_layers:
       - meta-oe
