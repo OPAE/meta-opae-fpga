@@ -2,6 +2,11 @@ machine: agilex
 image: n6000
 target: n6000-image-minimal
 fit: true
+uboot-binary: [bl31.bin, u-boot-nodtb.bin, u-boot.dtb, linux.dtb, rootfs.cpio, Image]
+root-public-qky: userkey_root_public.qky
+root-private-pem: userkey_root_private.pem
+root-public-pem: userkey_root_public.pem
+
 repos:
   - name: poky
     url: https://git.yoctoproject.org/git/poky.git
@@ -26,6 +31,10 @@ repos:
       - meta-oe
       - meta-networking
       - meta-python
+  - name: fcs_prepare
+    url: https://github.com/altera-opensource/fcs_apps.git
+    branch: fcs_prepare
+
 ingredients:
   linux:
     name: linux-socfpga
