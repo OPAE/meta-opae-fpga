@@ -30,7 +30,7 @@ import shutil
 import subprocess
 import sys
 import yaml
-
+import os
 from pathlib import Path
 
 LOG = logging.getLogger()
@@ -64,9 +64,9 @@ rm -rf {images_dir}/*
 '''
 
 
-
 class dot_version:
     VERSION_RE = re.compile('(?P<version>\d+(?:\.\d+)*)')
+
     def __init__(self, version: str):
         self.str_version = version
         self.num_version = [int(n) for n in version.split('.')]
@@ -80,9 +80,9 @@ class dot_version:
             yield cls(v)
 
 
-
 class git_repo:
     URL_RE = re.compile('(?P<scheme>[\w\+]+)://(?P<fqdn>[\w\.-]+)/(?P<path>.*?)/(?P<name>[\w-]+)(\.git)?')
+
     def __init__(self, **kwargs):
         def get_url_tail(url):
             m = self.URL_RE.match(url)
@@ -122,17 +122,16 @@ class git_repo:
             LOG.error(f'error appling patch {patchfile} to {self.srcdir}')
 
 
-
 class bitbaker:
     var_assign_re = re.compile(r'^(:?export)?\s*(\w+)="\s*([\w_\-/\.\+]+)\s*"\s*$',
                                re.MULTILINE)
+
     def __init__(self, poky_dir: Path, rootfs_dir: Path, build_dir: Path) -> None:
         self.poky_dir = poky_dir.absolute()
         self.rootfs_dir = rootfs_dir.absolute()
         self.build_dir = build_dir.absolute()
         oe_init_build_env = self.poky_dir.joinpath('oe-init-build-env')
         self.source_cmd = f'source {oe_init_build_env} {self.rootfs_dir}'
-
 
     def with_env(self, *cmds):
         script = '\n'.join([self.source_cmd] + list(cmds))
@@ -206,7 +205,6 @@ class bitbaker:
         with bblayers_conf.open('w') as fp:
             fp.write(bblayers_text)
 
-
     def build(self, target, clean=False):
         if clean:
             cmds = ['bitbake virtual/kernel -c cleanall',
@@ -248,6 +246,161 @@ class bitbaker:
         itb = uboot_make_dir.joinpath('u-boot.itb')
         spl = uboot_make_dir.joinpath('spl/u-boot-spl-dtb.hex')
         return (itb, spl)
+
+    def vab(self, cfg: dict, repos: dict, ctx: dict, args: argparse.Namespace, target, images_dir):
+        LOG.info(' uboot vab')
+        # clone fcs_prepare repo
+
+        fcs_prepare = repos.get('fcs_prepare')
+        print("fcs_prepare:", fcs_prepare)
+        if fcs_prepare is None:
+            LOG.error('No fcs_prepare repo specified')
+            return False
+
+        # Build fcs_prepare
+        print(" fcs_prepare.srcdir", fcs_prepare.srcdir)
+        subprocess.run(['make'], cwd=fcs_prepare.srcdir)
+        fcs_prepare = os.path.abspath('{}/{}/{}'.format(os.getcwd(),
+                                                        fcs_prepare.srcdir, "fcs_prepare"))
+        print("fcs_prepare:", fcs_prepare)
+
+        uboot_binary = cfg.get('uboot-binary')
+        print("uboot_binary:", uboot_binary)
+        print("qaurtus-path:", args.quartus)
+        print("build_dir:", args.build_dir)
+
+        # create vab build dir
+        build_vab = os.path.abspath('{}/{}'.format(args.build_dir, "vab"))
+        print("build_vab:", build_vab)
+        if os.path.exists(build_vab):
+            shutil.rmtree(build_vab)
+        os.mkdir(build_vab)
+
+        # remove uboot-socfpga-vab-n6000 dir
+        uboot_vab = os.path.abspath('{}/{}'.format(args.build_dir, "uboot-socfpga-vab-n6000"))
+        print("uboot_vab:", uboot_vab)
+        if os.path.exists(uboot_vab):
+            shutil.rmtree(uboot_vab)
+
+        # uboot env
+        LOG.info('getting environment for uboot')
+        uboot_env = self.get_target_env('virtual/bootloader')
+        LOG.info(f'getting environment for {target}')
+        image_env = self.get_target_env(target)
+        uboot_src_dir = uboot_env['S']
+        uboot_bin_dir = uboot_env['B']
+        uboot_config = 'socfpga_{machine}_{image}_defconfig'.format(**ctx)
+        uboot_make_dir = Path(uboot_bin_dir, uboot_config)
+        print(f'uboot_src={uboot_src_dir}')
+        print(f'uboot_bin={uboot_bin_dir}')
+        print(f'uboot_make_dir={uboot_make_dir}')
+
+        # copy uboot src to folder uboot-socfpga-vab-n6000
+        shutil.copytree(uboot_src_dir, uboot_vab)
+
+        # quartus path
+        quartus_path = os.path.abspath('{}/{}'.format(args.quartus,
+                                                      "bin/quartus_sign"))
+        if not os.path.exists(quartus_path):
+            print(" Invalid quartu_path:", quartus_path)
+            return -1
+        print(" quartus_path:", quartus_path)
+
+        root_public_qky = os.path.abspath('{}/../{}/{}'.format(args.conf.name,
+                                                               "vab", cfg.get('root-public-qky')))
+        print("root_public_qky:", root_public_qky)
+        if not os.path.exists(root_public_qky):
+            print(" Invalid root_public_qky:", root_public_qky)
+            return False
+
+        root_private_pem = os.path.abspath('{}/../{}/{}'.format(args.conf.name,
+                                                                "vab", cfg.get('root-private-pem')))
+        print("root_private_pem:", root_private_pem)
+        if not os.path.exists(root_private_pem):
+            print(" Invalid root_private_pem:", root_private_pem)
+            return False
+
+        root_public_pem = os.path.abspath('{}/../{}/{}'.format(args.conf.name,
+                                                               "vab", cfg.get('root-public-pem')))
+        print("root_public_pem:", root_public_pem)
+        if not os.path.exists(root_public_pem):
+            print(" Invalid root_public_pem:", root_public_pem)
+            return False
+
+        # Sign uboot binary
+        for i in range(len(uboot_binary)):
+            print(uboot_binary[i])
+
+            # copy unsinged vab files
+            shutil.copy(uboot_make_dir.joinpath(uboot_binary[i]), build_vab)
+
+            # delete unsigned_cert.cert
+            unsigned_cert_path = build_vab + "/" + "unsigned_cert.ccert"
+            print("unsigned_cert_patht:", unsigned_cert_path)
+            if os.path.exists(unsigned_cert_path):
+                os.remove(unsigned_cert_path)
+
+            # create unsigned_cert.ccert
+            p1 = subprocess.Popen(args=[fcs_prepare,
+                                  '--hps_cert', uboot_binary[i], '-v'], cwd=build_vab)
+            p1.wait()
+
+            # create signed cert
+            signed_cert = 'signed_cert{}.ccert'.format(uboot_binary[i])
+            # print(" signed_cert:",signed_cert)
+            signed_cert_path = build_vab + "/" + signed_cert
+            p1 = subprocess.Popen(args=[quartus_path, '--family=agilex',
+                                  '--operation=SIGN', str('--qky=' + root_public_qky),
+                                  str('--pem=' + root_private_pem), unsigned_cert_path,
+                                  signed_cert], cwd=build_vab)
+            p1.wait()
+
+            # Sign binary
+            p1 = subprocess.Popen(args=[fcs_prepare, '--finish', signed_cert_path,
+                                  '--imagefile', uboot_binary[i]], cwd=build_vab)
+            p1.wait()
+
+            signed_bin = 'signed-{}'.format(uboot_binary[i])
+            # print(" signed_bin:",signed_bin)
+            hps_image_signed = build_vab + "/" + "hps_image_signed.vab"
+            if os.path.exists(hps_image_signed):
+                shutil.move(hps_image_signed, build_vab + "/" + signed_bin)
+
+            if os.path.exists(signed_cert_path):
+                os.remove(signed_cert_path)
+            if os.path.exists(unsigned_cert_path):
+                os.remove(unsigned_cert_path)
+
+            print(build_vab + "/" + signed_bin)
+            shutil.copy(build_vab + "/" + signed_bin, uboot_vab)
+
+        # Build VAB enabled uboot
+        print("uboot_vab:", uboot_vab)
+        ret_value = subprocess.call("make clean && make mrproper", cwd=uboot_vab, shell=True)
+        if not ret_value:
+            print("Failed to make clean uboot soruce code ", ret_value)
+
+        ret_value = subprocess.call("make socfpga_agilex_n6000_vab_defconfig", cwd=uboot_vab, shell=True)
+        if not ret_value:
+            print("Failed to make socfpga_agilex_n6000_vab_defconfig ", ret_value)
+
+        ret_value = subprocess.call("make -j", cwd=uboot_vab, shell=True)
+        if not ret_value:
+            print("Failed to make uboot ", ret_value)
+
+        # print("images_dir ",images_dir)
+        uboot_userkey_vab = os.path.abspath('{}/{}'.format(images_dir,
+                                                           "u-boot-userkey-vab.itb"))
+
+        uboot_stl_vab = os.path.abspath('{}/{}'.format(images_dir,
+                                                       "u-boot-spl-dtb-vab.hex"))
+
+        # print("uboot_userkey_vab ",uboot_userkey_vab)
+        # print("uboot_stl_vab ",uboot_stl_vab)
+        shutil.copy(uboot_vab + "/" + "u-boot.itb", uboot_userkey_vab)
+        shutil.copy(uboot_vab + "/spl/u-boot-spl-dtb.hex", uboot_stl_vab)
+
+        return True
 
 
 def get_meta(cfg: dict, args: argparse.Namespace) -> dict:
@@ -341,6 +494,7 @@ def update_meta(cfg: dict, repos: dict, args: argparse.Namespace):
 IMAGE_TYPES = ['gsrd', 'nand', 'pcie', 'pr', 'qspi', 'sgmii', 'tse', 'n6000']
 MACHINES = ['agilex', 'stratix10', 'arria10', 'cyclone5']
 
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('build_dir', default='build', type=Path)
@@ -352,6 +506,8 @@ def main():
     parser.add_argument('--target', default=None)
     parser.add_argument('--images-dir', type=Path)
     parser.add_argument('--skip-build', action='store_true', default=False)
+    parser.add_argument('--quartus', type=Path)
+    parser.add_argument('--vab', action='store_true', default=False)
 
     args = parser.parse_args()
 
@@ -384,7 +540,6 @@ def main():
         LOG.info(f'cleaning up with commands:\n{cmd}')
         subprocess.call(['/bin/bash', '-c', cmd])
 
-
     ctx = {'machine': machine,
            'image': image,
            'target': target,
@@ -409,11 +564,20 @@ def main():
         images_dir.mkdir()
     # VAB signing
     # make fit
-    if cfg.get('fit', False):
-        itb, spl = bb.make_fit(target, ctx)
-        shutil.copy(itb, images_dir)
-        shutil.copy(spl, images_dir)
-
+    if not args.vab:
+        if cfg.get('fit', False):
+            itb, spl = bb.make_fit(target, ctx)
+            shutil.copy(itb, images_dir)
+            shutil.copy(spl, images_dir)
+    else:
+        # VAB
+        try:
+            itb, spl = bb.make_fit(target, ctx)
+            shutil.copy(itb, images_dir)
+            shutil.copy(spl, images_dir)
+            bb.vab(cfg, repos, ctx, args, target, images_dir)
+        except subprocess.CalledProcessError as err:
+            raise SystemExit(err)
 
     # packaging
 
