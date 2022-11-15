@@ -58,6 +58,30 @@ Image  linux.dtb  rootfs.cpio
 > make
 ```
 
+## Vendor Authorized Boot ##
+The Intel Agilex Soc Secure supports end-to-end authenticated boot flow, from device power on until the Linux kernel is loaded
+
+### VAB Build Setup ###
+
+* Install Quartus on Build System
+* Creating User Keys using uartus_sign
+``` 
+quartus_sign --family=agilex --operation=make_private_pem --curve=secp384r1 --no_passphrase  userkey_root_private.pem
+quartus_sign --family=agilex --operation=make_public_pem  userkey_root_private.pem  userkey_root_public.pem
+quartus_sign --family=agilex --operation=make_root userkey_root_public.pem  userkey_root_public.qky 
+```
+
+
+* Copy user keys to folder meta-opae-fpga/tools/meta-bake/n6000/vab/
+* Run VAB enabled build command signs Images with user keys and generates VAB enabled Images 
+
+ Example VABBuild Commad
+``` 
+./meta-opae-fpga/tools/meta-bake/meta-bake.py build_vab --conf /home/user/meta-opae-fpga/tools/meta-bake/n6000/layers.yaml --no-cleanup --vab --quartus /home/user/intelFPGA_pro/22.1/qprogrammer/quartus/
+```
+
+* VAB images are generated u-boot-vab.itb and  u-boot-spl-dtb-vab.hex in folder Build folder/agilex-n6000-images
+
 ## References ##
 
 ### layers.yaml ###

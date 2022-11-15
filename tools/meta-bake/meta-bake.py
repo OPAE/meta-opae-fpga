@@ -302,7 +302,7 @@ class bitbaker:
         quartus_path = os.path.abspath('{}/{}'.format(args.quartus,
                                                       "bin/quartus_sign"))
         if not os.path.exists(quartus_path):
-            print(" Invalid quartu_path:", quartus_path)
+            print(" Invalid quartus_path:", quartus_path)
             return -1
         print(" quartus_path:", quartus_path)
 
@@ -336,29 +336,26 @@ class bitbaker:
 
             # delete unsigned_cert.cert
             unsigned_cert_path = build_vab + "/" + "unsigned_cert.ccert"
-            print("unsigned_cert_patht:", unsigned_cert_path)
+            print("unsigned_cert_path:", unsigned_cert_path)
             if os.path.exists(unsigned_cert_path):
                 os.remove(unsigned_cert_path)
 
             # create unsigned_cert.ccert
-            p1 = subprocess.Popen(args=[fcs_prepare,
-                                  '--hps_cert', uboot_binary[i], '-v'], cwd=build_vab)
-            p1.wait()
+            p1 = subprocess.check_call(args=[fcs_prepare,
+                                       '--hps_cert', uboot_binary[i], '-v'], cwd=build_vab)
 
             # create signed cert
             signed_cert = 'signed_cert{}.ccert'.format(uboot_binary[i])
             # print(" signed_cert:",signed_cert)
             signed_cert_path = build_vab + "/" + signed_cert
-            p1 = subprocess.Popen(args=[quartus_path, '--family=agilex',
-                                  '--operation=SIGN', str('--qky=' + root_public_qky),
-                                  str('--pem=' + root_private_pem), unsigned_cert_path,
-                                  signed_cert], cwd=build_vab)
-            p1.wait()
+            p1 = subprocess.check_call(args=[quartus_path, '--family=agilex',
+                                       '--operation=SIGN', str('--qky=' + root_public_qky),
+                                       str('--pem=' + root_private_pem), unsigned_cert_path,
+                                       signed_cert], cwd=build_vab)
 
             # Sign binary
-            p1 = subprocess.Popen(args=[fcs_prepare, '--finish', signed_cert_path,
-                                  '--imagefile', uboot_binary[i]], cwd=build_vab)
-            p1.wait()
+            p1 = subprocess.check_call(args=[fcs_prepare, '--finish', signed_cert_path,
+                                       '--imagefile', uboot_binary[i]], cwd=build_vab)
 
             signed_bin = 'signed-{}'.format(uboot_binary[i])
             # print(" signed_bin:",signed_bin)
@@ -376,21 +373,21 @@ class bitbaker:
 
         # Build VAB enabled uboot
         print("uboot_vab:", uboot_vab)
-        ret_value = subprocess.call("make clean && make mrproper", cwd=uboot_vab, shell=True)
+        ret_value = subprocess.run(["make clean && make mrproper"], cwd=uboot_vab, shell=True)
         if not ret_value:
             print("Failed to make clean uboot soruce code ", ret_value)
 
-        ret_value = subprocess.call("make socfpga_agilex_n6000_vab_defconfig", cwd=uboot_vab, shell=True)
+        ret_value = subprocess.run(["make socfpga_agilex_n6000_vab_defconfig"], cwd=uboot_vab, shell=True)
         if not ret_value:
             print("Failed to make socfpga_agilex_n6000_vab_defconfig ", ret_value)
 
-        ret_value = subprocess.call("make -j", cwd=uboot_vab, shell=True)
+        ret_value = subprocess.run(["make -j"], cwd=uboot_vab, shell=True)
         if not ret_value:
             print("Failed to make uboot ", ret_value)
 
         # print("images_dir ",images_dir)
         uboot_userkey_vab = os.path.abspath('{}/{}'.format(images_dir,
-                                                           "u-boot-userkey-vab.itb"))
+                                                           "u-boot-vab.itb"))
 
         uboot_stl_vab = os.path.abspath('{}/{}'.format(images_dir,
                                                        "u-boot-spl-dtb-vab.hex"))
