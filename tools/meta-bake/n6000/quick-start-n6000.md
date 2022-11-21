@@ -73,11 +73,21 @@ quartus_sign --family=agilex --operation=make_root userkey_root_public.pem  user
 
 
 * Copy user keys to folder meta-opae-fpga/tools/meta-bake/n6000/vab/
-* Run VAB enabled build command signs Images with user keys and generates VAB enabled Images 
+* Setup ARM cross compiler environment
 
- Example VABBuild Commad
+Example ARM compiler environment
+```
+wget https://developer.arm.com/-/media/Files/downloads/gnu-a/10.2-2020.11/binrel/gcc-arm-10.2-2020.11-x86_64-aarch64-none-linux-gnu.tar.xz
+tar xf gcc-arm-10.2-2020.11-x86_64-aarch64-none-linux-gnu.tar.xz
+rm gcc-arm-10.2-2020.11-x86_64-aarch64-none-linux-gnu.tar.xz
+export CROSS_COMPILE=`pwd`/gcc-arm-10.2-2020.11-x86_64-aarch64-none-linux-gnu/bin/aarch64-none-linux-gnu-
+export ARCH=arm64
+```
+* Run VAB enabled build command to sign Images with user keys and generate VAB enabled Images. 
+
+Example VAB Enabled Build Command
 ``` 
-./meta-opae-fpga/tools/meta-bake/meta-bake.py build_vab --conf /home/user/meta-opae-fpga/tools/meta-bake/n6000/layers.yaml --no-cleanup --vab --quartus /home/user/intelFPGA_pro/22.1/qprogrammer/quartus/
+./meta-opae-fpga/tools/meta-bake/meta-bake.py build_vab --conf /home/user/meta-opae-fpga/tools/meta-bake/n6000/layers.yaml  --vab --quartus /home/user/intelFPGA_pro/22.1/qprogrammer/quartus/
 ```
 
 * VAB images are generated u-boot-vab.itb and  u-boot-spl-dtb-vab.hex in folder Build folder/agilex-n6000-images
