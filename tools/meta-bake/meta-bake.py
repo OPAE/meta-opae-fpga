@@ -300,11 +300,11 @@ class bitbaker:
         # copy uboot src to folder uboot-socfpga-vab-n6000
         shutil.copytree(uboot_src_dir, uboot_vab)
 
-        for i in range(len(linux_binary)):
-            print(linux_binary[i])
+        for fname in linux_binary:
+            print(fname)
             # copy unsinged files
-            print("path ", uboot_make_dir.joinpath(linux_binary[i]))
-            shutil.copy(uboot_make_dir.joinpath(linux_binary[i]), build_vab)
+            print("path ", uboot_make_dir.joinpath(fname))
+            shutil.copy(uboot_make_dir.joinpath(fname), build_vab)
 
         # quartus path
         quartus_path = os.path.abspath('{}/{}'.format(args.quartus,
@@ -348,15 +348,15 @@ class bitbaker:
         if not ret_value:
             print("Failed to make uboot ", ret_value)
 
-        for i in range(len(uboot_dtb)):
-            print(uboot_dtb[i])
+        for fname in uboot_dtb:
+            print(fname)
             # copy unsinged bin files
-            shutil.copy(str(uboot_vab + "/" + uboot_dtb[i]), build_vab)
+            shutil.copy(str(uboot_vab + "/" + fname), build_vab)
 
         hps_binary = uboot_dtb + linux_binary
         # Sign uboot binary
-        for i in range(len(hps_binary)):
-            print(hps_binary[i])
+        for fname in hps_binary:
+            print(fname)
 
             # delete unsigned_cert.cert
             unsigned_cert_path = build_vab + "/" + "unsigned_cert.ccert"
@@ -366,10 +366,10 @@ class bitbaker:
 
             # create unsigned_cert.ccert
             p1 = subprocess.check_call(args=[fcs_prepare,
-                                       '--hps_cert', hps_binary[i], '-v'], cwd=build_vab)
+                                       '--hps_cert', fname, '-v'], cwd=build_vab)
 
             # create signed cert
-            signed_cert = 'signed_cert{}.ccert'.format(hps_binary[i])
+            signed_cert = 'signed_cert{}.ccert'.format(fname)
             # print(" signed_cert:",signed_cert)
             signed_cert_path = build_vab + "/" + signed_cert
             p1 = subprocess.check_call(args=[quartus_path, '--family=agilex',
@@ -379,9 +379,9 @@ class bitbaker:
 
             # Sign binary
             p1 = subprocess.check_call(args=[fcs_prepare, '--finish', signed_cert_path,
-                                       '--imagefile', hps_binary[i]], cwd=build_vab)
+                                       '--imagefile', fname], cwd=build_vab)
 
-            signed_bin = 'signed-{}'.format(hps_binary[i])
+            signed_bin = 'signed-{}'.format(fname)
             # print(" signed_bin:",signed_bin)
             hps_image_signed = build_vab + "/" + "hps_image_signed.vab"
             if os.path.exists(hps_image_signed):
