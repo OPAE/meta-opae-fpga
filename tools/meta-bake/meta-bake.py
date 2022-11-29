@@ -236,10 +236,10 @@ class bitbaker:
         uboot_bin_dir = uboot_env['B']
         uboot_config = 'socfpga_{machine}_{image}_defconfig'.format(**ctx)
         uboot_make_dir = Path(uboot_bin_dir, uboot_config)
-        #print(f'uboot_src={uboot_src_dir}')
-        #print(f'uboot_bin={uboot_bin_dir}')
+        # print(f'uboot_src={uboot_src_dir}')
+        # print(f'uboot_bin={uboot_bin_dir}')
         cpio = '{DEPLOY_DIR_IMAGE}/{IMAGE_BASENAME}-{machine}.cpio'.format(**image_env, **ctx)
-        #print(f'cpio={cpio}')
+        # print(f'cpio={cpio}')
         shutil.copy(cpio, uboot_make_dir.joinpath('rootfs.cpio'))
         LOG.debug(f'Making uboot in: {uboot_make_dir}')
         subprocess.run(['make'], cwd=uboot_make_dir)
@@ -264,8 +264,10 @@ class bitbaker:
                                                         fcs_prepare.srcdir, "fcs_prepare"))
         print("fcs_prepare:", fcs_prepare)
 
-        uboot_binary = cfg.get('uboot-binary')
-        print("uboot_binary:", uboot_binary)
+        uboot_dtb = cfg.get('uboot-dtb')
+        linux_binary = cfg.get('linux-binary')
+        print("uboot-dtb:", uboot_dtb)
+        print("linux_binary:", linux_binary)
         print("qaurtus-path:", args.quartus)
         print("build_dir:", args.build_dir)
 
@@ -298,6 +300,12 @@ class bitbaker:
         # copy uboot src to folder uboot-socfpga-vab-n6000
         shutil.copytree(uboot_src_dir, uboot_vab)
 
+        for fname in linux_binary:
+            print(fname)
+            # copy unsinged files
+            print("path ", uboot_make_dir.joinpath(fname))
+            shutil.copy(uboot_make_dir.joinpath(fname), build_vab)
+
         # quartus path
         quartus_path = os.path.abspath('{}/{}'.format(args.quartus,
                                                       "bin/quartus_sign"))
@@ -327,12 +335,28 @@ class bitbaker:
             print(" Invalid root_public_pem:", root_public_pem)
             return False
 
-        # Sign uboot binary
-        for i in range(len(uboot_binary)):
-            print(uboot_binary[i])
+        # build u-boot
+        ret_value = subprocess.run(["make clean && make mrproper"], cwd=uboot_vab, shell=True)
+        if not ret_value:
+            print("Failed to make clean uboot soruce code ", ret_value)
 
-            # copy unsinged vab files
-            shutil.copy(uboot_make_dir.joinpath(uboot_binary[i]), build_vab)
+        ret_value = subprocess.run(["make socfpga_agilex_n6000_vab_defconfig"], cwd=uboot_vab, shell=True)
+        if not ret_value:
+            print("Failed to make socfpga_agilex_n6000_vab_defconfig ", ret_value)
+
+        ret_value = subprocess.run(["make -j"], cwd=uboot_vab, shell=True)
+        if not ret_value:
+            print("Failed to make uboot ", ret_value)
+
+        for fname in uboot_dtb:
+            print(fname)
+            # copy unsinged bin files
+            shutil.copy(str(uboot_vab + "/" + fname), build_vab)
+
+        hps_binary = uboot_dtb + linux_binary
+        # Sign uboot binary
+        for fname in hps_binary:
+            print(fname)
 
             # delete unsigned_cert.cert
             unsigned_cert_path = build_vab + "/" + "unsigned_cert.ccert"
@@ -342,10 +366,10 @@ class bitbaker:
 
             # create unsigned_cert.ccert
             p1 = subprocess.check_call(args=[fcs_prepare,
-                                       '--hps_cert', uboot_binary[i], '-v'], cwd=build_vab)
+                                       '--hps_cert', fname, '-v'], cwd=build_vab)
 
             # create signed cert
-            signed_cert = 'signed_cert{}.ccert'.format(uboot_binary[i])
+            signed_cert = 'signed_cert{}.ccert'.format(fname)
             # print(" signed_cert:",signed_cert)
             signed_cert_path = build_vab + "/" + signed_cert
             p1 = subprocess.check_call(args=[quartus_path, '--family=agilex',
@@ -355,9 +379,9 @@ class bitbaker:
 
             # Sign binary
             p1 = subprocess.check_call(args=[fcs_prepare, '--finish', signed_cert_path,
-                                       '--imagefile', uboot_binary[i]], cwd=build_vab)
+                                       '--imagefile', fname], cwd=build_vab)
 
-            signed_bin = 'signed-{}'.format(uboot_binary[i])
+            signed_bin = 'signed-{}'.format(fname)
             # print(" signed_bin:",signed_bin)
             hps_image_signed = build_vab + "/" + "hps_image_signed.vab"
             if os.path.exists(hps_image_signed):
@@ -372,11 +396,7 @@ class bitbaker:
             shutil.copy(build_vab + "/" + signed_bin, uboot_vab)
 
         # Build VAB enabled uboot
-        print("uboot_vab:", uboot_vab)
-        ret_value = subprocess.run(["make clean && make mrproper"], cwd=uboot_vab, shell=True)
-        if not ret_value:
-            print("Failed to make clean uboot soruce code ", ret_value)
-
+        # print("uboot_vab:", uboot_vab)
         ret_value = subprocess.run(["make socfpga_agilex_n6000_vab_defconfig"], cwd=uboot_vab, shell=True)
         if not ret_value:
             print("Failed to make socfpga_agilex_n6000_vab_defconfig ", ret_value)
