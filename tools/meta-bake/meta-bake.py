@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Copyright(c) 2022, Intel Corporation
+# Copyright(c) 2022-2023, Intel Corporation
 #
 # Redistribution  and  use  in source  and  binary  forms,  with  or  without
 # modification, are permitted provided that the following conditions are met:
@@ -336,15 +336,19 @@ class bitbaker:
             return False
 
         # build u-boot
-        ret_value = subprocess.run(["make clean && make mrproper"], cwd=uboot_vab, shell=True)
+        ret_value = subprocess.run(["make", "clean"], cwd=uboot_vab)
         if not ret_value:
             print("Failed to make clean uboot soruce code ", ret_value)
 
-        ret_value = subprocess.run(["make socfpga_agilex_n6000_vab_defconfig"], cwd=uboot_vab, shell=True)
+        ret_value = subprocess.run(["make", "mrproper"], cwd=uboot_vab)
+        if not ret_value:
+            print("Failed to make mrproper uboot soruce code ", ret_value)
+
+        ret_value = subprocess.run(["make", "socfpga_agilex_n6000_vab_defconfig"], cwd=uboot_vab)
         if not ret_value:
             print("Failed to make socfpga_agilex_n6000_vab_defconfig ", ret_value)
 
-        ret_value = subprocess.run(["make -j"], cwd=uboot_vab, shell=True)
+        ret_value = subprocess.run(["make", "-j"], cwd=uboot_vab)
         if not ret_value:
             print("Failed to make uboot ", ret_value)
 
@@ -397,11 +401,11 @@ class bitbaker:
 
         # Build VAB enabled uboot
         # print("uboot_vab:", uboot_vab)
-        ret_value = subprocess.run(["make socfpga_agilex_n6000_vab_defconfig"], cwd=uboot_vab, shell=True)
+        ret_value = subprocess.run(["make", "socfpga_agilex_n6000_vab_defconfig"], cwd=uboot_vab)
         if not ret_value:
             print("Failed to make socfpga_agilex_n6000_vab_defconfig ", ret_value)
 
-        ret_value = subprocess.run(["make -j"], cwd=uboot_vab, shell=True)
+        ret_value = subprocess.run(["make", "-j"], cwd=uboot_vab)
         if not ret_value:
             print("Failed to make uboot ", ret_value)
 
