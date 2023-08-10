@@ -141,6 +141,8 @@ class bitbaker:
         script = self.with_env(*cmds)
         cmd = ['/bin/bash', '-c', script]
         cwd = kwargs.pop('cwd', self.build_dir)
+        LOG.info(f'cwd: {cwd}')
+        LOG.info(f'cmd: {" ".join(cmd)}')
         return subprocess.call(cmd, cwd=cwd)
 
     def initialize(self, cfg: dict, args: argparse.Namespace, ctx: dict):
@@ -213,6 +215,7 @@ class bitbaker:
         else:
             cmds = []
         cmds.append(f'bitbake {target}')
+        cmds.append(f'bitbake u-boot-socfpga')
         self.run(*cmds)
 
     def get_target_env(self, target):
@@ -234,15 +237,18 @@ class bitbaker:
         image_env = self.get_target_env(target)
         uboot_src_dir = uboot_env['S']
         uboot_bin_dir = uboot_env['B']
-        uboot_config = 'socfpga_{machine}_{image}_defconfig'.format(**ctx)
+        uboot_config = 'socfpga_agilex_n6000_defconfig'.format(**ctx)
         uboot_make_dir = Path(uboot_bin_dir, uboot_config)
-        # print(f'uboot_src={uboot_src_dir}')
-        # print(f'uboot_bin={uboot_bin_dir}')
+        print(f'uboot_src={uboot_src_dir}')
+        print(f'uboot_bin={uboot_bin_dir}')
         cpio = '{DEPLOY_DIR_IMAGE}/{IMAGE_BASENAME}-{machine}.cpio'.format(**image_env, **ctx)
-        # print(f'cpio={cpio}')
-        shutil.copy(cpio, uboot_make_dir.joinpath('rootfs.cpio'))
-        LOG.debug(f'Making uboot in: {uboot_make_dir}')
-        subprocess.run(['make'], cwd=uboot_make_dir)
+        print(f'cpio={cpio}')
+        #shutil.copy(cpio, uboot_make_dir.joinpath('rootfs.cpio'))
+        LOG.debug(f'uboot_make_dir is {uboot_make_dir}')
+        #subprocess.run(['make'], cwd=uboot_make_dir)
+        #LOG.debug("running bitbake u-boot-socfpga")
+        #subprocess.run(['bitbake', 'u-boot-socfpga'])
+	
         itb = uboot_make_dir.joinpath('u-boot.itb')
         spl = uboot_make_dir.joinpath('spl/u-boot-spl-dtb.hex')
         return (itb, spl)

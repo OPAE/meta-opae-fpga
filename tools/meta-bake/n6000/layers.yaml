@@ -1,5 +1,5 @@
-machine: agilex
-image: n6000
+machine: agilex7_n6000
+image: ramfs
 target: n6000-image-minimal
 fit: true
 uboot-dtb: [u-boot-nodtb.bin, u-boot.dtb]
@@ -11,23 +11,24 @@ root-public-pem: userkey_root_public.pem
 repos:
   - name: poky
     url: https://git.yoctoproject.org/git/poky.git
-    branch: hardknott
+    branch: mickledore
   - name: meta-intel-fpga
     url: https://git.yoctoproject.org/git/meta-intel-fpga.git
-    branch: hardknott
+    branch: mickledore
+    patch: meta-intel-fpga-n6000-mickledore.patch
     add_layers: true
   - name: meta-intel-fpga-refdes
     url: https://github.com/altera-opensource/meta-intel-fpga-refdes.git
     #url__: https://github.com/intel-innersource/os.linux.yocto.reference-design.meta-intel-fpga-refdes.git
     #url: git@github.com:intel-innersource/os.linux.yocto.reference-design.meta-intel-fpga-refdes.git
     #branch: rrojo/n6000
-    branch: hardknott
-    patch: refdes-n6000-ppp.patch
+    branch: mickledore
+    patch: refdes-n6000-ppp-mickledore.patch
     keep: true
     add_layers: true
   - name: meta-openembedded
     url: https://github.com/openembedded/meta-openembedded.git
-    branch: hardknott
+    branch: mickledore
     add_layers:
       - meta-oe
       - meta-networking
@@ -39,18 +40,18 @@ repos:
 ingredients:
   linux:
     name: linux-socfpga
-    version: '5.10.100'
-    branch: socfpga-5.10.100-lts
+    version: '6.1.20'
+    branch: socfpga-6.1.20-lts
     url: https://github.com/altera-opensource/linux-socfpga.git
   uboot:
     name: u-boot-socfpga
-    version: '2021.07'
-    branch: socfpga_v2021.07
+    version: '2023.01'
+    branch: socfpga_v2023.01
     url: https://github.com/altera-opensource/u-boot-socfpga.git
   atf:
     disabled: true
-    version: '2.4.1'
-    branch: socfpga_v2.4.1
+    version: '2.8.1'
+    branch: socfpga_v2.8.1
     url: https://github.com/altera-opensource/arm-trusted-firmware.git
 local:
   remove:
@@ -61,14 +62,14 @@ local:
   values:
     MACHINE: $machine
     DL_DIR: $build_dir/downloads
-    DISTRO_FEATURES_append: " systemd"
+    DISTRO_FEATURES:append: " systemd"
     VIRTUAL-RUNTIME_init_manager: systemd
     IMAGE_TYPE: $image
     IMAGE_FSTYPES: "+=cpio tar.gz"
-    PREFERRED_PROVIDER_virtual/kernel: linux-socfpga-lts
-    PREFERRED_VERSION_linux-socfpga-lts: 5.10%
-    UBOOT_CONFIG: agilex-n6000
+    PREFERRED_PROVIDER_virtual/kernel: linux-socfpga
+    PREFERRED_VERSION_linux-socfpga: 6.1%
+    UBOOT_CONFIG: agilex7_n6000
     PREFERRED_PROVIDER_virtual/bootloader: u-boot-socfpga
-    PREFERRED_VERSION_u-boot-socfpga: v2021.07%
+    PREFERRED_VERSION_u-boot-socfpga: u-boot-socfpga_v2023.01%
 
 
