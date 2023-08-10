@@ -1,0 +1,67 @@
+diff --git a/conf/machine/agilex7_n6000.conf b/conf/machine/agilex7_n6000.conf
+new file mode 100644
+index 0000000..1dbeefd
+--- /dev/null
++++ b/conf/machine/agilex7_n6000.conf
+@@ -0,0 +1,20 @@
++#@TYPE: Machine
++#@NAME: Intel N6000
++#@DESCRIPTION: Machine configuration for the Agilex7 N600
++
++require conf/machine/include/socfpga_armv8a.inc
++require conf/machine/include/ubifs.inc
++
++KBUILD_DEFCONFIG ?= "defconfig"
++
++UBOOT_CONFIG ??= "agilex7_n6000"
++UBOOT_CONFIG[agilex7_n6000] = "socfpga_agilex_n6000_defconfig"
++
++UBOOT_BINARY = "u-boot.itb"
++UBOOT_SUFFIX = "itb"
++
++KERNEL_CLASSES:append = " kernel-fitimage"
++KERNEL_IMAGETYPE = "Image"
++
++KERNEL_DEVICETREE ?= "intel/socfpga_agilex_n6000.dtb"
++
+diff --git a/recipes-bsp/arm-trusted-firmware/arm-trusted-firmware.inc b/recipes-bsp/arm-trusted-firmware/arm-trusted-firmware.inc
+index 4c51c27..b4c1e06 100644
+--- a/recipes-bsp/arm-trusted-firmware/arm-trusted-firmware.inc
++++ b/recipes-bsp/arm-trusted-firmware/arm-trusted-firmware.inc
+@@ -19,7 +19,7 @@ SRC_URI = "${ATF_REPO};protocol=${ATF_PROT};branch=${ATF_BRANCH}"
+ 
+ S = "${WORKDIR}/git"
+ 
+-COMPATIBLE_MACHINE = "(agilex7_dk_si_agf014ea|agilex7_dk_si_agf014eb|agilex7_dk_si_agi027fb|agilex7_dk_si_agi027fa|agilex7_dk_dev_agf027f1es|agilex5|stratix10|n5x)"
++COMPATIBLE_MACHINE = "(agilex7_dk_si_agf014ea|agilex7_dk_si_agf014eb|agilex7_dk_si_agi027fb|agilex7_dk_si_agi027fa|agilex7_dk_dev_agf027f1es|agilex7_n6000|agilex5|stratix10|n5x)"
+ ATFPLAT = "${MACHINE}"
+ ATFPLAT:agilex7_dk_si_agf014ea = "agilex"
+ ATFPLAT:agilex7_dk_si_agf014eb = "agilex"
+diff --git a/recipes-bsp/u-boot/u-boot-socfpga-common.inc b/recipes-bsp/u-boot/u-boot-socfpga-common.inc
+index 4171181..3f6f30c 100644
+--- a/recipes-bsp/u-boot/u-boot-socfpga-common.inc
++++ b/recipes-bsp/u-boot/u-boot-socfpga-common.inc
+@@ -10,6 +10,7 @@ DEPENDS:append:agilex7_dk_si_agf014eb = " arm-trusted-firmware bash"
+ DEPENDS:append:agilex7_dk_si_agi027fb = " arm-trusted-firmware bash"
+ DEPENDS:append:agilex7_dk_si_agi027fa = " arm-trusted-firmware bash"
+ DEPENDS:append:agilex7_dk_dev_agf027f1es = " arm-trusted-firmware bash"
++DEPENDS:append:agilex7_n6000 = " arm-trusted-firmware bash"
+ DEPENDS:append:agilex5 = " arm-trusted-firmware bash"
+ DEPENDS:append:stratix10 = " arm-trusted-firmware bash"
+ DEPENDS:append:n5x = " arm-trusted-firmware bash"
+@@ -19,6 +20,7 @@ COMPILE_PREPEND_FILES:agilex7_dk_si_agf014eb = " bl31.bin "
+ COMPILE_PREPEND_FILES:agilex7_dk_si_agi027fb = " bl31.bin "
+ COMPILE_PREPEND_FILES:agilex7_dk_si_agi027fa = " bl31.bin "
+ COMPILE_PREPEND_FILES:agilex7_dk_dev_agf027f1es = " bl31.bin "
++COMPILE_PREPEND_FILES:agilex7_n6000 = " bl31.bin "
+ COMPILE_PREPEND_FILES:agilex5 = " bl31.bin "
+ COMPILE_PREPEND_FILES:stratix10 = " bl31.bin "
+ COMPILE_PREPEND_FILES:n5x = " bl31.bin Image linux.dtb u-boot.txt "
+@@ -29,6 +31,7 @@ DEPLOY_APPEND_FILES:agilex7_dk_si_agf014eb = ""
+ DEPLOY_APPEND_FILES:agilex7_dk_si_agi027fb = ""
+ DEPLOY_APPEND_FILES:agilex7_dk_si_agi027fa = ""
+ DEPLOY_APPEND_FILES:agilex7_dk_dev_agf027f1es = ""
++DEPLOY_APPEND_FILES:agilex7_n6000 = ""
+ DEPLOY_APPEND_FILES:agilex5 = ""
+ DEPLOY_APPEND_FILES:stratix10 = ""
+ DEPLOY_APPEND_FILES:n5x = " kernel.itb "
