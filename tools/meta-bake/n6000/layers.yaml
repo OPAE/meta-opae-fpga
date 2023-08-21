@@ -3,7 +3,7 @@ image: ramfs
 target: n6000-image-minimal
 fit: true
 uboot-dtb: [u-boot-nodtb.bin, u-boot.dtb]
-linux-binary: [bl31.bin, linux.dtb, rootfs.cpio, Image]
+linux-binary: [bl31.bin, linux.dtb, rootfs.cpio.gz, Image]
 root-public-qky: userkey_root_public.qky
 root-private-pem: userkey_root_private.pem
 root-public-pem: userkey_root_public.pem
