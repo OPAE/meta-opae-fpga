@@ -429,14 +429,14 @@ index 0000000..64a3e7c
 +WantedBy=multi-user.target
 diff --git a/recipes-bsp/u-boot/files/0001-arm-socfpga-n6010-changes-required-to-upgrade-2023.0.patch b/recipes-bsp/u-boot/files/0001-arm-socfpga-n6010-changes-required-to-upgrade-2023.0.patch
 new file mode 100644
-index 0000000..3d993c5
+index 0000000..a69e63a
 --- /dev/null
 +++ b/recipes-bsp/u-boot/files/0001-arm-socfpga-n6010-changes-required-to-upgrade-2023.0.patch
 @@ -0,0 +1,114 @@
 +From e4f274463f53a175725d847e0854403e0a933867 Mon Sep 17 00:00:00 2001
 +From: Matthew Gerlach <matthew.gerlach@linux.intel.com>
 +Date: Wed, 26 Jul 2023 08:57:31 -0700
-+Subject: [PATCH 1/7] arm: socfpga: n6010: changes required to upgrade 2023.01
++Subject: [PATCH 1/8] arm: socfpga: n6010: changes required to upgrade 2023.01
 + U-boot
 +
 +Change the n6010 code to upgrade U-boot from 2021.07 to 2023.01.
@@ -549,14 +549,14 @@ index 0000000..3d993c5
 +
 diff --git a/recipes-bsp/u-boot/files/0002-HSD-14015124126-n6000-rename-n6010-to-n6000.patch b/recipes-bsp/u-boot/files/0002-HSD-14015124126-n6000-rename-n6010-to-n6000.patch
 new file mode 100644
-index 0000000..2889e80
+index 0000000..85b1eb0
 --- /dev/null
 +++ b/recipes-bsp/u-boot/files/0002-HSD-14015124126-n6000-rename-n6010-to-n6000.patch
 @@ -0,0 +1,489 @@
 +From 7ed3f95e6cf64aa6dea30c1620efb9d7f6b2fb0c Mon Sep 17 00:00:00 2001
 +From: Rodrigo Rojo <rodrigo.rojo@intel.com>
 +Date: Fri, 15 Oct 2021 17:05:13 -0700
-+Subject: [PATCH 2/7] HSD #14015124126: n6000: rename n6010 to n6000
++Subject: [PATCH 2/8] HSD #14015124126: n6000: rename n6010 to n6000
 +
 +The name of the board is really the n6000; so change
 +the filenames and documentation accordingly.
@@ -1044,14 +1044,14 @@ index 0000000..2889e80
 +
 diff --git a/recipes-bsp/u-boot/files/0003-fix-base-uart1-device-tree.patch b/recipes-bsp/u-boot/files/0003-fix-base-uart1-device-tree.patch
 new file mode 100644
-index 0000000..0b31e11
+index 0000000..db1d02a
 --- /dev/null
 +++ b/recipes-bsp/u-boot/files/0003-fix-base-uart1-device-tree.patch
 @@ -0,0 +1,40 @@
 +From 92c0fe629ab955a85f9c7d7176aaa6111d08152e Mon Sep 17 00:00:00 2001
 +From: Matthew Gerlach <matthew.gerlach@linux.intel.com>
 +Date: Wed, 26 Jul 2023 11:24:01 -0700
-+Subject: [PATCH 3/7] fix base uart1 device tree
++Subject: [PATCH 3/8] fix base uart1 device tree
 +
 +---
 + arch/arm/dts/socfpga_agilex-u-boot.dtsi | 4 ++++
@@ -1090,14 +1090,14 @@ index 0000000..0b31e11
 +
 diff --git a/recipes-bsp/u-boot/files/0004-socfpga_agilex_n6000.dts-to-uart1.patch b/recipes-bsp/u-boot/files/0004-socfpga_agilex_n6000.dts-to-uart1.patch
 new file mode 100644
-index 0000000..d5611aa
+index 0000000..9711132
 --- /dev/null
 +++ b/recipes-bsp/u-boot/files/0004-socfpga_agilex_n6000.dts-to-uart1.patch
 @@ -0,0 +1,37 @@
 +From 7fa5b66ddf9738d6b3a4802aebc7e518af273334 Mon Sep 17 00:00:00 2001
 +From: Matthew Gerlach <matthew.gerlach@linux.intel.com>
 +Date: Wed, 26 Jul 2023 11:27:29 -0700
-+Subject: [PATCH 4/7] socfpga_agilex_n6000.dts to uart1
++Subject: [PATCH 4/8] socfpga_agilex_n6000.dts to uart1
 +
 +---
 + arch/arm/dts/socfpga_agilex_n6000.dts | 7 ++++++-
@@ -1133,14 +1133,14 @@ index 0000000..d5611aa
 +
 diff --git a/recipes-bsp/u-boot/files/0005-n6000-update-device-tree-for-2GB-of-DDR.patch b/recipes-bsp/u-boot/files/0005-n6000-update-device-tree-for-2GB-of-DDR.patch
 new file mode 100644
-index 0000000..4f315e5
+index 0000000..480e3b5
 --- /dev/null
 +++ b/recipes-bsp/u-boot/files/0005-n6000-update-device-tree-for-2GB-of-DDR.patch
 @@ -0,0 +1,31 @@
 +From cedf7d652f90d1e49fd4b4cca7921d148f45e0b0 Mon Sep 17 00:00:00 2001
 +From: Matthew Gerlach <matthew.gerlach@linux.intel.com>
 +Date: Mon, 2 May 2022 14:04:29 -0700
-+Subject: [PATCH 5/7] n6000: update device tree for 2GB of DDR
++Subject: [PATCH 5/8] n6000: update device tree for 2GB of DDR
 +
 +The Hard Processor System (HPS) on the n6000 has 2GB of DDR
 +connected.  Update the devicetree with the correct memory size.
@@ -1170,14 +1170,14 @@ index 0000000..4f315e5
 +
 diff --git a/recipes-bsp/u-boot/files/0006-n6000-update-external-clock-programming.patch b/recipes-bsp/u-boot/files/0006-n6000-update-external-clock-programming.patch
 new file mode 100644
-index 0000000..754bc92
+index 0000000..f649084
 --- /dev/null
 +++ b/recipes-bsp/u-boot/files/0006-n6000-update-external-clock-programming.patch
 @@ -0,0 +1,1755 @@
 +From a641e8857bc5a490920b57cb420e6594df538a0a Mon Sep 17 00:00:00 2001
 +From: Matthew Gerlach <matthew.gerlach@intel.com>
 +Date: Tue, 4 Oct 2022 12:38:57 -0700
-+Subject: [PATCH 6/7] n6000: update external clock programming
++Subject: [PATCH 6/8] n6000: update external clock programming
 +
 +Update the programming of the external clock to use o_clk_rec_div66
 +as the input clock rather than o_clk_rec_div64.
@@ -2931,14 +2931,14 @@ index 0000000..754bc92
 +
 diff --git a/recipes-bsp/u-boot/files/0007-n6000-update-external-clock-based-on-suggestions-fro.patch b/recipes-bsp/u-boot/files/0007-n6000-update-external-clock-based-on-suggestions-fro.patch
 new file mode 100644
-index 0000000..154c9cc
+index 0000000..4524d22
 --- /dev/null
 +++ b/recipes-bsp/u-boot/files/0007-n6000-update-external-clock-based-on-suggestions-fro.patch
 @@ -0,0 +1,2587 @@
 +From b3ae41e0fa5ce1c7e10631689dbbf6b70d357451 Mon Sep 17 00:00:00 2001
 +From: Matthew Gerlach <matthew.gerlach@linux.intel.com>
 +Date: Thu, 16 Mar 2023 11:13:25 -0700
-+Subject: [PATCH 7/7] n6000: update external clock based on suggestions from
++Subject: [PATCH 7/8] n6000: update external clock based on suggestions from
 + Microsemi
 +
 +- Different phase lock criteria, to match SyncE
@@ -5522,6 +5522,115 @@ index 0000000..154c9cc
 +-- 
 +2.34.1
 +
+diff --git a/recipes-bsp/u-boot/files/0008-n6000-add-config-for-VAB.patch b/recipes-bsp/u-boot/files/0008-n6000-add-config-for-VAB.patch
+new file mode 100644
+index 0000000..17361e7
+--- /dev/null
++++ b/recipes-bsp/u-boot/files/0008-n6000-add-config-for-VAB.patch
+@@ -0,0 +1,103 @@
++From 9c7e311f4eccdb82f6fdc0654c420ad0759c2504 Mon Sep 17 00:00:00 2001
++From: Matthew Gerlach <matthew.gerlach@linux.intel.com>
++Date: Tue, 5 Sep 2023 17:07:33 -0700
++Subject: [PATCH 8/8] n6000: add config for VAB
++
++Add a config file for Vendor Authenticatec Boot (VAB)
++of an n6000 card.
++
++Signed-off-by: Matthew Gerlach <matthew.gerlach@linux.intel.com>
++---
++ configs/socfpga_agilex_n6000_vab_defconfig | 80 ++++++++++++++++++++++
++ 1 file changed, 80 insertions(+)
++ create mode 100644 configs/socfpga_agilex_n6000_vab_defconfig
++
++diff --git a/configs/socfpga_agilex_n6000_vab_defconfig b/configs/socfpga_agilex_n6000_vab_defconfig
++new file mode 100644
++index 0000000000..376679b432
++--- /dev/null
+++++ b/configs/socfpga_agilex_n6000_vab_defconfig
++@@ -0,0 +1,80 @@
+++CONFIG_ARM=y
+++CONFIG_COUNTER_FREQUENCY=400000000
+++CONFIG_SPL_LDSCRIPT="arch/arm/mach-socfpga/u-boot-spl-soc64.lds"
+++CONFIG_ARCH_SOCFPGA=y
+++CONFIG_TEXT_BASE=0x200000
+++CONFIG_SYS_MALLOC_F_LEN=0x2000
+++CONFIG_NR_DRAM_BANKS=2
+++CONFIG_DM_GPIO=y
+++CONFIG_DEFAULT_DEVICE_TREE="socfpga_agilex_n6000"
+++CONFIG_SPL_TEXT_BASE=0xFFE00000
+++CONFIG_TARGET_SOCFPGA_AGILEX_N6000=y
+++CONFIG_IDENT_STRING="socfpga_agilex"
+++CONFIG_SPL_FS_FAT=y
+++CONFIG_DISTRO_DEFAULTS=y
+++CONFIG_FIT=y
+++CONFIG_SPL_FIT_SIGNATURE=y
+++CONFIG_SPL_LOAD_FIT=y
+++CONFIG_SPL_LOAD_FIT_ADDRESS=0x02000000
+++CONFIG_SYS_LOAD_ADDR=0x02000000
+++# CONFIG_USE_SPL_FIT_GENERATOR is not set
+++CONFIG_BOOTDELAY=3
+++CONFIG_USE_BOOTARGS=y
+++CONFIG_BOOTARGS="earlycon uio_pdrv_genirq.of_id=intel,hps-copy-engine"
+++# CONFIG_SPL_RAW_IMAGE_SUPPORT is not set
+++CONFIG_USE_BOOTCOMMAND=y
+++CONFIG_BOOTCOMMAND="mw f9000158 1 ; bootm 0x02000000#linux_conf"
+++CONFIG_HAS_CUSTOM_SYS_INIT_SP_ADDR=y
+++CONFIG_CUSTOM_SYS_INIT_SP_ADDR=0x300000
+++CONFIG_SPL_MAX_SIZE=0x40000
+++CONFIG_SPL_HAS_BSS_LINKER_SECTION=y
+++CONFIG_SPL_BSS_START_ADDR=0x3ff00000
+++# CONFIG_SPL_SHARES_INIT_SP_ADDR is not set
+++CONFIG_SPL_STACK=0xffe3f000
+++CONFIG_SYS_SPL_MALLOC=y
+++CONFIG_HAS_CUSTOM_SPL_MALLOC_START=y
+++CONFIG_CUSTOM_SYS_SPL_MALLOC_ADDR=0x3fa00000
+++CONFIG_SYS_SPL_MALLOC_SIZE=0x500000
+++CONFIG_SPL_BSS_MAX_SIZE=0x100000
+++CONFIG_SPL_CRC32=y
+++CONFIG_SPL_CACHE=y
+++CONFIG_SPL_BOARD_INIT=y
+++CONFIG_SPL_ATF=y
+++CONFIG_SPL_ATF_NO_PLATFORM_PARAM=y
+++CONFIG_SPL_RAM_SUPPORT=y
+++CONFIG_SPL_RAM_DEVICE=y
+++CONFIG_BOARD_LATE_INIT=y
+++CONFIG_SYS_PROMPT="SOCFPGA_AGILEX # "
+++CONFIG_CMD_MEMTEST=y
+++CONFIG_CMD_GPIO=y
+++CONFIG_CMD_I2C=y
+++CONFIG_CMD_SPI=y
+++CONFIG_CMD_CACHE=y
+++CONFIG_SPL_DM_SEQ_ALIAS=y
+++CONFIG_SPL_ALTERA_SDRAM=y
+++CONFIG_DWAPB_GPIO=y
+++CONFIG_DM_I2C=y
+++CONFIG_SYS_I2C_DW=y
+++CONFIG_DM_MMC=y
+++# CONFIG_MMC_DW=y
+++CONFIG_MTD=y
+++CONFIG_SF_DEFAULT_MODE=0x2003
+++CONFIG_SPI_FLASH_SPANSION=y
+++CONFIG_SPI_FLASH_STMICRO=y
+++CONFIG_PHY_MICREL=y
+++CONFIG_PHY_MICREL_KSZ90X1=y
+++CONFIG_DM_ETH=y
+++CONFIG_ETH_DESIGNWARE=y
+++CONFIG_MII=y
+++CONFIG_DM_RESET=y
+++CONFIG_SPI=y
+++CONFIG_DM_SPI=y
+++CONFIG_DESIGNWARE_SPI=y
+++CONFIG_USB=y
+++CONFIG_DM_USB=y
+++CONFIG_USB_DWC2=y
+++CONFIG_DESIGNWARE_WATCHDOG=y
+++CONFIG_WDT=y
+++# CONFIG_SPL_USE_TINY_PRINTF is not set
+++CONFIG_PANIC_HANG=y
+++CONFIG_SOCFPGA_SECURE_VAB_AUTH=y
++-- 
++2.34.1
++
 diff --git a/recipes-bsp/u-boot/u-boot-socfpga-env.bb b/recipes-bsp/u-boot/u-boot-socfpga-env.bb
 index 64e1a26..b7a025e 100644
 --- a/recipes-bsp/u-boot/u-boot-socfpga-env.bb
@@ -5547,7 +5656,7 @@ index 16089da..3319cf4 100644
  SRC_URI:stratix10 = "file://uboot.txt file://uboot_script.its"
  SRC_URI:arria10 = "file://arria10_u-boot.txt"
 diff --git a/recipes-bsp/u-boot/u-boot-socfpga_%.bbappend b/recipes-bsp/u-boot/u-boot-socfpga_%.bbappend
-index afb88e7..0b8388f 100644
+index afb88e7..0ad3463 100644
 --- a/recipes-bsp/u-boot/u-boot-socfpga_%.bbappend
 +++ b/recipes-bsp/u-boot/u-boot-socfpga_%.bbappend
 @@ -5,6 +5,7 @@ DEPENDS:append:agilex7_dk_si_agf014eb = " arm-trusted-firmware bash u-boot-socfp
@@ -5558,7 +5667,7 @@ index afb88e7..0b8388f 100644
  DEPENDS:append:agilex5 = " arm-trusted-firmware bash u-boot-socfpga-scr"
  DEPENDS:append:stratix10 = " arm-trusted-firmware bash u-boot-socfpga-scr"
  DEPENDS:append:arria10 = " hw-ref-design"
-@@ -14,6 +15,13 @@ SRC_URI:append = " \
+@@ -14,6 +15,14 @@ SRC_URI:append = " \
               file://0001-arm-Add-dwarf-4-to-compilation-flag.patch \
               file://0001-arm-agilex-add-board-configuration.patch \
               file://0001-arm-stratix10-add-board-configuration.patch \
@@ -5569,6 +5678,7 @@ index afb88e7..0b8388f 100644
 +             file://0005-n6000-update-device-tree-for-2GB-of-DDR.patch \
 +             file://0006-n6000-update-external-clock-programming.patch \
 +             file://0007-n6000-update-external-clock-based-on-suggestions-fro.patch \
++             file://0008-n6000-add-config-for-VAB.patch \
             "
  
  inherit deploy

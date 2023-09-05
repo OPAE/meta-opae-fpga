@@ -297,7 +297,7 @@ class bitbaker:
         image_env = self.get_target_env(target)
         uboot_src_dir = uboot_env['S']
         uboot_bin_dir = uboot_env['B']
-        uboot_config = 'socfpga_{machine}_{image}_defconfig'.format(**ctx)
+        uboot_config = 'socfpga_agilex_n6000_defconfig'.format(**ctx)
         uboot_make_dir = Path(uboot_bin_dir, uboot_config)
         print(f'uboot_src={uboot_src_dir}')
         print(f'uboot_bin={uboot_bin_dir}')
