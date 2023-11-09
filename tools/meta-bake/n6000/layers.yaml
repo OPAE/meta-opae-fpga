@@ -16,14 +16,13 @@ repos:
     url: https://git.yoctoproject.org/git/meta-intel-fpga.git
     branch: kirkstone
     patch: meta-intel-fpga-n6000-kirkstone.patch
+    commit: 74e4dae14953f6c7ea6d49df4f8477bcb71326b2
     add_layers: true
   - name: meta-intel-fpga-refdes
     url: https://github.com/altera-opensource/meta-intel-fpga-refdes.git
-    #url__: https://github.com/intel-innersource/os.linux.yocto.reference-design.meta-intel-fpga-refdes.git
-    #url: git@github.com:intel-innersource/os.linux.yocto.reference-design.meta-intel-fpga-refdes.git
-    #branch: rrojo/n6000
     branch: kirkstone
     patch: refdes-n6000-ppp-kirkstone.patch
+    commit: 5c58669e26046cad6ad103b6075635ce8b4d89d3
     keep: true
     add_layers: true
   - name: meta-openembedded

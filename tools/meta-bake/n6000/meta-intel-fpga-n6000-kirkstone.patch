@@ -39,21 +39,50 @@ index 0000000..1e14ab7
 +			socfpga_agilex_n6000.dtb \
 +		    "
 +
+diff --git a/conf/machine/include/socfpga.inc b/conf/machine/include/socfpga.inc
+index 989c73d..39d4127 100644
+--- a/conf/machine/include/socfpga.inc
++++ b/conf/machine/include/socfpga.inc
+@@ -24,7 +24,7 @@ MACHINE_FEATURES = "kernel26"
+ KBUILD_DEFCONFIG ?= "socfpga_defconfig"
+ 
+ # file system images required
+-IMAGE_FSTYPES ?= "cpio ext3 tar.gz jffs2"
++IMAGE_FSTYPES ?= "cpio cpio.gz ext3 tar.gz jffs2"
+ 
+ # u-boot setup
+ UBOOT_SUFFIX ?= "sfp"
 diff --git a/recipes-bsp/arm-trusted-firmware/arm-trusted-firmware.inc b/recipes-bsp/arm-trusted-firmware/arm-trusted-firmware.inc
-index 3e73261..64af89d 100644
+index 3e73261..69d3102 100644
 --- a/recipes-bsp/arm-trusted-firmware/arm-trusted-firmware.inc
 +++ b/recipes-bsp/arm-trusted-firmware/arm-trusted-firmware.inc
-@@ -19,7 +19,7 @@ SRC_URI = "${ATF_REPO};protocol=${ATF_PROT};branch=${ATF_BRANCH}"
+@@ -19,8 +19,9 @@ SRC_URI = "${ATF_REPO};protocol=${ATF_PROT};branch=${ATF_BRANCH}"
  
  S = "${WORKDIR}/git"
  
 -COMPATIBLE_MACHINE = "(agilex|stratix10|n5x)"
 +COMPATIBLE_MACHINE = "(agilex|agilex_n6000|stratix10|n5x)"
  ATFPLAT = "${MACHINE}"
++ATFPLAT:agilex_n6000 = "agilex"
  
  # Let the Makefile handle setting up the CFLAGS and LDFLAGS as it is a standalone application
+ EXTRA_OEMAKE = 'CROSS_COMPILE="${TARGET_PREFIX}" PLAT="${ATFPLAT}" DEPRECATED=1'
+diff --git a/recipes-bsp/arm-trusted-firmware/arm-trusted-firmware_v2.8.bb b/recipes-bsp/arm-trusted-firmware/arm-trusted-firmware_v2.8.bb
+new file mode 100644
+index 0000000..2e9d0c2
+--- /dev/null
++++ b/recipes-bsp/arm-trusted-firmware/arm-trusted-firmware_v2.8.bb
+@@ -0,0 +1,8 @@
++require arm-trusted-firmware.inc
++
++LIC_FILES_CHKSUM = "file://docs/license.rst;md5=b2c740efedc159745b9b31f88ff03dde"
++
++ATF_VERSION = "v2.8.1"
++ATF_BRANCH = "socfpga_${ATF_VERSION}"
++
++SRCREV = "03a5d54432629af63bc203187825fbe7cdb8e37c"
 diff --git a/recipes-bsp/u-boot/u-boot-socfpga-common.inc b/recipes-bsp/u-boot/u-boot-socfpga-common.inc
-index 97b2715..5541427 100644
+index 97b2715..1e35926 100644
 --- a/recipes-bsp/u-boot/u-boot-socfpga-common.inc
 +++ b/recipes-bsp/u-boot/u-boot-socfpga-common.inc
 @@ -4,6 +4,8 @@ SECTION = "bootloaders"
@@ -82,14 +111,14 @@ index 97b2715..5541427 100644
  								cp ${DEPLOY_DIR_IMAGE}/u-boot.txt ${B}/${config}/u-boot.txt
  								cp ${DEPLOY_DIR_IMAGE}/u-boot.txt ${S}/u-boot.txt
 +							elif [ "${file}" = "rootfs.cpio.gz" ]; then
-+								cp ${DEPLOY_DIR_IMAGE}/n6000-image-minimal-${MACHINE}.cpio.gz ${B}/${config}/${file}
-+								cp ${DEPLOY_DIR_IMAGE}/n6000-image-minimal-${MACHINE}.cpio.gz ${S}/${file}
++								gzip --stdout ${DEPLOY_DIR_IMAGE}/n6000-image-minimal-${MACHINE}.cpio > ${B}/${config}/${file}
++								gzip --stdout ${DEPLOY_DIR_IMAGE}/n6000-image-minimal-${MACHINE}.cpio > ${S}/${file}
  							else
  								cp ${DEPLOY_DIR_IMAGE}/${file} ${B}/${config}/${file}
  								cp ${DEPLOY_DIR_IMAGE}/${file} ${S}/${file}
 diff --git a/recipes-bsp/u-boot/u-boot-socfpga_v2023.04.bb b/recipes-bsp/u-boot/u-boot-socfpga_v2023.04.bb
 new file mode 100755
-index 0000000..a1c09cd
+index 0000000..844cd3f
 --- /dev/null
 +++ b/recipes-bsp/u-boot/u-boot-socfpga_v2023.04.bb
 @@ -0,0 +1,21 @@
@@ -109,7 +138,7 @@ index 0000000..a1c09cd
 +DEPLOY_APPEND_FILES:stratix10 = ""
 +DEPLOY_APPEND_FILES:n5x = " kernel.itb "
 +
-+LIC_FILES_CHKSUM = "file://Licenses/README;md5=5a7450c57ffe5ae63fd732446b988025"
++LIC_FILES_CHKSUM = "file://Licenses/README;md5=2ca5f2c35c8cc335f0a19756634782f1"
 +
 +UBOOT_VERSION = "v2023.04"
 +
@@ -191,3 +220,16 @@ index e286d06..3e87df4 100644
 +
 +FILESEXTRAPATHS:prepend := "${THISDIR}/config:"
 +SRC_URI:append:agilex_n6000 = " file://ppp.scc file://uio.scc file://nos10svc.scc "
+diff --git a/recipes-kernel/linux/linux-socfpga_6.1.bb b/recipes-kernel/linux/linux-socfpga_6.1.bb
+new file mode 100644
+index 0000000..fe3ad85
+--- /dev/null
++++ b/recipes-kernel/linux/linux-socfpga_6.1.bb
+@@ -0,0 +1,7 @@
++LINUX_VERSION = "6.1"
++
++SRCREV = "d345a46074e9b94be5a30a6d8f0df66b47cb59f1"
++
++include linux-socfpga.inc
++
++LIC_FILES_CHKSUM = "file://COPYING;md5=6bc538ed5bd9a7fc9398086aedcd7e46"
