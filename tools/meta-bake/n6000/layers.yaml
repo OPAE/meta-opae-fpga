@@ -15,6 +15,7 @@ repos:
   - name: meta-intel-fpga
     url: https://git.yoctoproject.org/git/meta-intel-fpga.git
     branch: mickledore
+    commit: 243d252bd1d872b000933782490e5f9b8523f180
     patch: meta-intel-fpga-n6000-mickledore.patch
     add_layers: true
   - name: meta-intel-fpga-refdes
@@ -23,6 +24,7 @@ repos:
     #url: git@github.com:intel-innersource/os.linux.yocto.reference-design.meta-intel-fpga-refdes.git
     #branch: rrojo/n6000
     branch: mickledore
+    commit: 908664f3c288ce09a3573193601d757184e246ac
     patch: refdes-n6000-ppp-mickledore.patch
     keep: true
     add_layers: true

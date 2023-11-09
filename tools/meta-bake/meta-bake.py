@@ -44,6 +44,10 @@ git checkout {branch}
 '''.strip()
 
 
+GIT_CHECKOUT = '''
+git checkout {commit}
+'''.strip()
+
 GIT_CLONE = '''
 git clone -b {branch} {url} {srcdir}
 '''.strip()
@@ -91,6 +95,7 @@ class git_repo:
         self.url = kwargs['url']
         self.name = kwargs.get('name', get_url_tail(self.url))
         self.branch = kwargs.get('branch', 'master')
+        self.commit = kwargs.get('commit')
         self.topdir = kwargs.get('topdir', 'build')
         self.srcdir = Path(self.topdir, self.name)
 
@@ -102,7 +107,15 @@ class git_repo:
         cmd = GIT_CLONE.format(branch=self.branch,
                                url=self.url,
                                srcdir=self.srcdir.stem)
+        LOG.info(f'/bin/bash -c {cmd}')
         subprocess.call(['/bin/bash', '-c', cmd], cwd=self.topdir)
+
+        if self.commit is not None:
+            LOG.info(f'checking out commit id: {self.commit}')
+            cmd = GIT_CHECKOUT.format(commit=self.commit)
+            LOG.info(f'srcdir is {self.srcdir}')
+            LOG.info(f'/bin/bash -c {cmd}')
+            subprocess.check_call(['/bin/bash', '-c', cmd], cwd=self.srcdir)
 
     def remote_hash(self):
         cmd = GIT_LSREMOTE.format(url=self.url,
