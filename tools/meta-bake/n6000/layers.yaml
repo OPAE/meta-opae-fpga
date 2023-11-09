@@ -1,4 +1,4 @@
-machine: agilex7_n6000
+machine: agilex_n6000
 image: ramfs
 target: n6000-image-minimal
 fit: true
@@ -11,24 +11,24 @@ root-public-pem: userkey_root_public.pem
 repos:
   - name: poky
     url: https://git.yoctoproject.org/git/poky.git
-    branch: mickledore
+    branch: kirkstone
   - name: meta-intel-fpga
     url: https://git.yoctoproject.org/git/meta-intel-fpga.git
-    branch: mickledore
-    patch: meta-intel-fpga-n6000-mickledore.patch
+    branch: kirkstone
+    patch: meta-intel-fpga-n6000-kirkstone.patch
     add_layers: true
   - name: meta-intel-fpga-refdes
     url: https://github.com/altera-opensource/meta-intel-fpga-refdes.git
     #url__: https://github.com/intel-innersource/os.linux.yocto.reference-design.meta-intel-fpga-refdes.git
     #url: git@github.com:intel-innersource/os.linux.yocto.reference-design.meta-intel-fpga-refdes.git
     #branch: rrojo/n6000
-    branch: mickledore
-    patch: refdes-n6000-ppp-mickledore.patch
+    branch: kirkstone
+    patch: refdes-n6000-ppp-kirkstone.patch
     keep: true
     add_layers: true
   - name: meta-openembedded
     url: https://github.com/openembedded/meta-openembedded.git
-    branch: mickledore
+    branch: kirkstone
     add_layers:
       - meta-oe
       - meta-networking
@@ -45,8 +45,8 @@ ingredients:
     url: https://github.com/altera-opensource/linux-socfpga.git
   uboot:
     name: u-boot-socfpga
-    version: '2023.01'
-    branch: socfpga_v2023.01
+    version: '2023.04'
+    branch: socfpga_v2023.04
     url: https://github.com/altera-opensource/u-boot-socfpga.git
   atf:
     disabled: true
@@ -68,8 +68,8 @@ local:
     IMAGE_FSTYPES: "+=cpio tar.gz"
     PREFERRED_PROVIDER_virtual/kernel: linux-socfpga
     PREFERRED_VERSION_linux-socfpga: 6.1%
-    UBOOT_CONFIG: agilex7_n6000
+    UBOOT_CONFIG: agilex_n6000
     PREFERRED_PROVIDER_virtual/bootloader: u-boot-socfpga
-    PREFERRED_VERSION_u-boot-socfpga: u-boot-socfpga_v2023.01%
+    PREFERRED_VERSION_u-boot-socfpga: u-boot-socfpga_v2023.04%
 
 
